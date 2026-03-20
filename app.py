@@ -757,7 +757,7 @@ with st.sidebar:
     st.markdown("### 📰 News Sentiment")
     enable_sentiment = st.toggle("Enable Real-Time Sentiment", value=True,
                                   help="Fetches latest headlines via Yahoo Finance (no key needed)")
-    st.caption("Sentiment is injected into the latest prediction only. Historical rows use 0.")
+    st.caption("Trust this analysis at your own risk. If it works, I’m a genius. If not… it was experimental.")
 
 # ─────────────────────────────────────────────────────────
 # HEADER
