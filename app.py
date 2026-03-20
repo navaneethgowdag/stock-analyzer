@@ -700,21 +700,13 @@ with st.sidebar:
     st.markdown("---")
     run_btn = st.button("▶  ANALYSE STOCK", use_container_width=True)
 
-    st.markdown("""
-    <div class='info-box'>
-    <b>NSE examples</b><br>
-    RELIANCE.NS · TCS.NS · HDFCBANK.NS<br>
-    INFY.NS · ICICIBANK.NS · SBIN.NS<br><br>
-    <b>US examples</b><br>
-    AAPL · MSFT · TSLA · NVDA
-    </div>
-    """, unsafe_allow_html=True)
+
 
     st.markdown("---")
     st.markdown("### 📰 News Sentiment")
     enable_sentiment = st.toggle("Enable Real-Time Sentiment", value=True,
                                   help="Fetches latest headlines via Yahoo Finance (no key needed)")
-    st.caption("Sentiment is injected into the latest prediction only. Historical rows use 0.")
+    st.caption("Trust this analysis at your own risk.... it works most of the time.😐")
 
 # ─────────────────────────────────────────────────────────
 # HEADER
