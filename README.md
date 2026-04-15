@@ -39,3 +39,18 @@ HellStock is an interactive stock analysis and trading simulation platform built
 ## 📸 Demo
 
 🔗 Live App: https://hellstock.streamlit.app
+
+## ⚡ Installation & Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/hellstock.git
+
+# Navigate to project folder
+cd hellstock
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the app
+streamlit run app.py
