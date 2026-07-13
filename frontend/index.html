@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Stock Monitor | Intelligent Portfolio Intelligence</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <i class="bi bi-robot"></i> AI Stock Monitor
+            </a>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#technology">Technology</a></li>
+                <li><a href="#roadmap">Roadmap</a></li>
+                <li><a href="login.html" class="btn btn-outline">Login</a></li>
+                <li><a href="register.html" class="btn btn-primary">Register</a></li>
+                <li>
+                    <button class="theme-toggle" id="theme-toggle">
+                        <i class="bi bi-moon-stars-fill"></i>
+                    </button>
+                </li>
+            </ul>
+            <button class="mobile-menu-btn" id="mobile-menu-btn">
+                <i class="bi bi-list"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="hero-bg">
+            <div class="grid"></div>
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+        </div>
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="reveal">Your AI Never Sleeps. <br> <span>Your Portfolio Never Stops.</span></h1>
+                <p class="reveal" style="transition-delay: 0.1s;">Monitor only the stocks you care about. Receive intelligent alerts powered by AI, technical analysis, and financial news.</p>
+                <div class="hero-buttons reveal" style="transition-delay: 0.2s;">
+                    <a href="register.html" class="btn btn-primary">Start Monitoring</a>
+                    <a href="#dashboard-preview" class="btn btn-outline">Explore Product</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Product Vision -->
+    <section class="product-vision" id="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="reveal">Product Vision</h2>
+                <p class="reveal">A glimpse into the future of intelligent investing.</p>
+            </div>
+            <div class="vision-grid">
+                <div class="glass-card vision-card reveal">
+                    <div class="icon-box"><i class="bi bi-bookmark-star"></i></div>
+                    <h3>Personal Watchlist</h3>
+                    <p>Curate the exact stocks you want to track. No noise, just your strategy.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.1s;">
+                    <div class="icon-box"><i class="bi bi-cpu"></i></div>
+                    <h3>AI Analysis</h3>
+                    <p>Algorithms that process technicals and sentiment faster than any human.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.2s;">
+                    <div class="icon-box"><i class="bi bi-activity"></i></div>
+                    <h3>Real-Time Monitoring</h3>
+                    <p>Live data streams feeding directly into your dashboard.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.3s;">
+                    <div class="icon-box"><i class="bi bi-newspaper"></i></div>
+                    <h3>News Intelligence</h3>
+                    <p>FinBERT scans thousands of articles to gauge market sentiment instantly.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.4s;">
+                    <div class="icon-box"><i class="bi bi-clock-history"></i></div>
+                    <h3>Historical Backtesting</h3>
+                    <p>Test your strategies against decades of historical market data.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.5s;">
+                    <div class="icon-box"><i class="bi bi-heart-pulse"></i></div>
+                    <h3>Portfolio Health</h3>
+                    <p>Real-time risk assessment and allocation analysis.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Future Dashboard Preview -->
+    <section class="dashboard-preview" id="dashboard-preview">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="reveal">Future Dashboard Preview</h2>
+                <p class="reveal">UI ready. Waiting for live data connection.</p>
+            </div>
+            <div class="dashboard-grid">
+                <!-- Portfolio Overview -->
+                <div class="glass-card dash-widget large reveal">
+                    <div class="widget-header">
+                        <h3>Portfolio Overview</h3>
+                        <div class="widget-status">
+                            <div class="status-dot"></div>
+                            <span>Waiting for API</span>
+                        </div>
+                    </div>
+                    <div class="skeleton skeleton-title"></div>
+                    <div class="skeleton skeleton-chart"></div>
+                    <p class="widget-message">Waiting for live portfolio data...</p>
+                </div>
+
+                <!-- Watchlist -->
+                <div class="glass-card dash-widget reveal">
+                    <div class="widget-header">
+                        <h3>Watchlist</h3>
+                        <div class="widget-status">
+                            <div class="status-dot"></div>
+                            <span>Empty</span>
+                        </div>
+                    </div>
+                    <div class="skeleton-block">
+                        <div class="skeleton skeleton-avatar"></div>
+                        <div class="skeleton skeleton-line"></div>
+                    </div>
+                    <div class="skeleton-block">
+                        <div class="skeleton skeleton-avatar"></div>
+                        <div class="skeleton skeleton-line"></div>
+                    </div>
+                    <div class="skeleton-block">
+                        <div class="skeleton skeleton-avatar"></div>
+                        <div class="skeleton skeleton-line"></div>
+                    </div>
+                    <p class="widget-message">No stocks added yet</p>
+                </div>
+
+                <!-- Market Data -->
+                <div class="glass-card dash-widget reveal">
+                    <div class="widget-header">
+                        <h3>Market Data</h3>
+                        <div class="widget-status">
+                            <div class="status-dot"></div>
+                            <span>Offline</span>
+                        </div>
+                    </div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <p class="widget-message">Connect API to stream live prices</p>
+                </div>
+
+                <!-- Alerts -->
+                <div class="glass-card dash-widget reveal">
+                    <div class="widget-header">
+                        <h3>Latest Alerts</h3>
+                        <div class="widget-status">
+                            <div class="status-dot"></div>
+                            <span>Standby</span>
+                        </div>
+                    </div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <p class="widget-message">AI alerts will appear here</p>
+                </div>
+
+                <!-- News -->
+                <div class="glass-card dash-widget reveal">
+                    <div class="widget-header">
+                        <h3>News Feed</h3>
+                        <div class="widget-status">
+                            <div class="status-dot"></div>
+                            <span>Disconnected</span>
+                        </div>
+                    </div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <p class="widget-message">Financial news will load here</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Workflow -->
+    <section class="ai-workflow">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="reveal">AI Workflow Engine</h2>
+                <p class="reveal">From registration to intelligent alerts.</p>
+            </div>
+            <div class="workflow-container reveal">
+                <div class="workflow-step"><i class="bi bi-person-plus"></i> Register</div>
+                <div class="workflow-arrow"></div>
+                <div class="workflow-step"><i class="bi bi-bookmark"></i> Create Watchlist</div>
+                <div class="workflow-arrow"></div>
+                <div class="workflow-step"><i class="bi bi-plug"></i> Connect Market API</div>
+                <div class="workflow-arrow"></div>
+                <div class="workflow-step"><i class="bi bi-download"></i> Collect Live Data</div>
+                <div class="workflow-arrow"></div>
+                <div class="workflow-step"><i class="bi bi-newspaper"></i> Analyze News</div>
+                <div class="workflow-arrow"></div>
+                <div class="workflow-step"><i class="bi bi-graph-up"></i> Calculate Indicators</div>
+                <div class="workflow-arrow"></div>
+                <div class="workflow-step"><i class="bi bi-cpu"></i> Run AI Engine</div>
+                <div class="workflow-arrow"></div>
+                <div class="workflow-step" style="border-color: var(--accent-primary); box-shadow: 0 0 20px var(--accent-glow);"><i class="bi bi-bell"></i> Generate Alert</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Future Features -->
+    <section class="future-features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="reveal">Future Features</h2>
+                <p class="reveal">Currently in development pipeline.</p>
+            </div>
+            <div class="features-grid">
+                <div class="glass-card feature-card reveal"><div class="icon-box"><i class="bi bi-broadcast"></i></div><h3>Live Monitoring</h3><p>Real-time tick data</p></div>
+                <div class="glass-card feature-card reveal" style="transition-delay:0.05s"><div class="icon-box"><i class="bi bi-bar-chart-line"></i></div><h3>AI Analysis</h3><p>Technical indicators</p></div>
+                <div class="glass-card feature-card reveal" style="transition-delay:0.1s"><div class="icon-box"><i class="bi bi-chat-dots"></i></div><h3>News Sentiment</h3><p>NLP processing</p></div>
+                <div class="glass-card feature-card reveal" style="transition-delay:0.15s"><div class="icon-box"><i class="bi bi-clock-history"></i></div><h3>Backtesting</h3><p>Historical runs</p></div>
+                <div class="glass-card feature-card reveal" style="transition-delay:0.2s"><div class="icon-box"><i class="bi bi-wallet2"></i></div><h3>Portfolio Intel</h3><p>Auto allocation</p></div>
+                <div class="glass-card feature-card reveal" style="transition-delay:0.25s"><div class="icon-box"><i class="bi bi-shield-exclamation"></i></div><h3>Risk Analysis</h3><p>Drawdown alerts</p></div>
+                <div class="glass-card feature-card reveal" style="transition-delay:0.3s"><div class="icon-box"><i class="bi bi-bell"></i></div><h3>Notifications</h3><p>Push & Email</p></div>
+                <div class="glass-card feature-card reveal" style="transition-delay:0.35s"><div class="icon-box"><i class="bi bi-eye"></i></div><h3>Predictions</h3><p>Future forecasting</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology Stack -->
+    <section class="technology-stack" id="technology">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="reveal">Technology Stack</h2>
+                <p class="reveal">Built for speed, scale, and intelligence.</p>
+            </div>
+            <div class="tech-grid">
+                <div class="glass-card tech-category reveal">
+                    <h3>Frontend</h3>
+                    <div class="tech-item"><span>HTML5</span></div>
+                    <div class="tech-item"><span>CSS3</span></div>
+                    <div class="tech-item"><span>JavaScript</span></div>
+                </div>
+                <div class="glass-card tech-category reveal" style="transition-delay:0.1s">
+                    <h3>Backend</h3>
+                    <div class="tech-item"><span>Node.js</span> <span class="badge">Soon</span></div>
+                    <div class="tech-item"><span>Express</span> <span class="badge">Soon</span></div>
+                    <div class="tech-item"><span>PostgreSQL</span> <span class="badge">Soon</span></div>
+                </div>
+                <div class="glass-card tech-category reveal" style="transition-delay:0.2s">
+                    <h3>AI Engine</h3>
+                    <div class="tech-item"><span>Python</span> <span class="badge">Soon</span></div>
+                    <div class="tech-item"><span>FastAPI</span> <span class="badge">Soon</span></div>
+                    <div class="tech-item"><span>FinBERT</span> <span class="badge">Soon</span></div>
+                    <div class="tech-item"><span>XGBoost</span> <span class="badge">Soon</span></div>
+                </div>
+                <div class="glass-card tech-category reveal" style="transition-delay:0.3s">
+                    <h3>DevOps</h3>
+                    <div class="tech-item"><span>Docker</span> <span class="badge">Soon</span></div>
+                    <div class="tech-item"><span>GitHub</span> <span class="badge">Soon</span></div>
+                    <div class="tech-item"><span>Redis</span> <span class="badge">Soon</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Roadmap -->
+    <section class="roadmap" id="roadmap">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="reveal">Development Roadmap</h2>
+                <p class="reveal">Our journey to intelligent investing.</p>
+            </div>
+            <div class="timeline">
+                <div class="timeline-item completed">
+                    <div class="content">Frontend UI</div>
+                    <div class="icon"><i class="bi bi-check2"></i></div>
+                </div>
+                <div class="timeline-item completed">
+                    <div class="content">Landing Page</div>
+                    <div class="icon"><i class="bi bi-check2"></i></div>
+                </div>
+                <div class="timeline-item completed">
+                    <div class="content">Authentication UI</div>
+                    <div class="icon"><i class="bi bi-check2"></i></div>
+                </div>
+                <div class="timeline-item">
+                    <div class="content">Backend APIs</div>
+                    <div class="icon"><i class="bi bi-circle"></i></div>
+                </div>
+                <div class="timeline-item">
+                    <div class="content">Database & Market APIs</div>
+                    <div class="icon"><i class="bi bi-circle"></i></div>
+                </div>
+                <div class="timeline-item">
+                    <div class="content">AI Engine & Intelligence</div>
+                    <div class="icon"><i class="bi bi-circle"></i></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-about">
+                    <a href="index.html" class="logo"><i class="bi bi-robot"></i> AI Stock Monitor</a>
+                    <p>An intelligent, AI-powered stock monitoring platform built for the future of retail investing.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <a href="#features">Features</a>
+                    <a href="#technology">Technology</a>
+                    <a href="#roadmap">Roadmap</a>
+                </div>
+                <div class="footer-links">
+                    <h4>Connect</h4>
+                    <a href="#">GitHub</a>
+                    <a href="#">LinkedIn</a>
+                    <a href="#">Email</a>
+                </div>
+                <div class="footer-links">
+                    <h4>Project Status</h4>
+                    <a href="#">Phase 1: MVP</a>
+                    <a href="login.html">Login</a>
+                    <a href="register.html">Register</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2023 AI Stock Monitor. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/index.js"></script>
+</body>
+</html>
