@@ -12,4 +12,20 @@ console.log(authRoutes);
 
 app.use("/api/auth", authRoutes);
 
+
+app.get("/", (req, res) => {
+    res.json({
+        success: true,
+        message: "AI Stock Monitor Backend Running 🚀"
+    });
+});
+
+const dashboardRoutes = require("./routes/dashboardRoutes");
+
+app.use("/api/dashboard", dashboardRoutes);
+
+const watchlistRoutes = require("./routes/watchlistRoutes");
+
+app.use("/api/watchlist",watchlistRoutes);
+
 module.exports = app;
