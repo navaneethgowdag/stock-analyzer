@@ -67,6 +67,7 @@
         </div>
     </section>
 
+
     <!-- Product Vision -->
     <section class="product-vision" id="features">
         <div class="container">
@@ -133,26 +134,38 @@
 
                 <!-- Watchlist -->
                 <div class="glass-card dash-widget reveal">
-                    <div class="widget-header">
-                        <h3>Watchlist</h3>
-                        <div class="widget-status">
-                            <div class="status-dot"></div>
-                            <span>Empty</span>
+                                    <div class="glass-card vision-card reveal">
+                <div class="add-stock">
+
+                        <input
+                            type="text"
+                            id="stock-symbol"
+                            placeholder="Stock Symbol (Example: TCS.NS)"
+                        >
+
+                        <input
+                            type="text"
+                            id="company-name"
+                            placeholder="Company Name"
+                        >
+
+                        <button id="add-stock-btn">
+                            Add Stock
+                        </button>
+
+                    </div>
+                    <div class="watchlist-section">
+
+                        <h2>My Watchlist</h2>
+
+                        <div id="watchlist">
+
+                            <p>No stocks added yet.</p>
+
                         </div>
-                    </div>
-                    <div class="skeleton-block">
-                        <div class="skeleton skeleton-avatar"></div>
-                        <div class="skeleton skeleton-line"></div>
-                    </div>
-                    <div class="skeleton-block">
-                        <div class="skeleton skeleton-avatar"></div>
-                        <div class="skeleton skeleton-line"></div>
-                    </div>
-                    <div class="skeleton-block">
-                        <div class="skeleton skeleton-avatar"></div>
-                        <div class="skeleton skeleton-line"></div>
-                    </div>
-                    <p class="widget-message">No stocks added yet</p>
+
+                    </div>   
+                    
                 </div>
 
                 <!-- Market Data -->
@@ -283,5 +296,6 @@
     </footer>
 
     <script src="js/index.js"></script>
+    <script src="js/watchlist.js"></script>
 </body>
 </html>

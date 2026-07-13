@@ -6,10 +6,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const registerForm = document.getElementById("register-form");
 
-    const fullName = document.getElementById("full-name");
-    const email = document.getElementById("email");
-    const password = document.getElementById("password");
-    const confirmPassword = document.getElementById("confirm-password");
+    const fullName = document.getElementById("full-name").value.trim();
+
+    const email = document.getElementById("email").value.trim();
+
+    const password = document.getElementById("password").value;
+
+    const confirmPassword = document.getElementById("confirm-password").value;
 
     const strengthMeter = document.getElementById("strength-meter");
 
