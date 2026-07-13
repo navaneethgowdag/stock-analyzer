@@ -18,16 +18,30 @@
             <ul class="nav-links">
                 <li><a href="#home">Home</a></li>
                 <li><a href="#features">Features</a></li>
-                <li><a href="#technology">Technology</a></li>
-                <li><a href="#roadmap">Roadmap</a></li>
-                <li><a href="login.html" class="btn btn-outline">Login</a></li>
-                <li><a href="register.html" class="btn btn-primary">Register</a></li>
+                <li id="login-nav">
+                    <a href="login.html" class="btn btn-outline">Login</a>
+                </li>
+
+                <li id="register-nav">
+                    <a href="register.html" class="btn btn-primary">Register</a>
+                </li>
+
+                <li id="user-nav" style="display:none;">
+                <span id="user-name"></span>
+                </li>
+
+                <li id="logout-nav" style="display:none;">
+                    <button class="btn btn-danger" id="logout-btn">
+                        Logout
+                    </button>
+                </li>
                 <li>
                     <button class="theme-toggle" id="theme-toggle">
                         <i class="bi bi-moon-stars-fill"></i>
                     </button>
                 </li>
             </ul>
+
             <button class="mobile-menu-btn" id="mobile-menu-btn">
                 <i class="bi bi-list"></i>
             </button>
@@ -231,79 +245,6 @@
                 <div class="glass-card feature-card reveal" style="transition-delay:0.25s"><div class="icon-box"><i class="bi bi-shield-exclamation"></i></div><h3>Risk Analysis</h3><p>Drawdown alerts</p></div>
                 <div class="glass-card feature-card reveal" style="transition-delay:0.3s"><div class="icon-box"><i class="bi bi-bell"></i></div><h3>Notifications</h3><p>Push & Email</p></div>
                 <div class="glass-card feature-card reveal" style="transition-delay:0.35s"><div class="icon-box"><i class="bi bi-eye"></i></div><h3>Predictions</h3><p>Future forecasting</p></div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Technology Stack -->
-    <section class="technology-stack" id="technology">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="reveal">Technology Stack</h2>
-                <p class="reveal">Built for speed, scale, and intelligence.</p>
-            </div>
-            <div class="tech-grid">
-                <div class="glass-card tech-category reveal">
-                    <h3>Frontend</h3>
-                    <div class="tech-item"><span>HTML5</span></div>
-                    <div class="tech-item"><span>CSS3</span></div>
-                    <div class="tech-item"><span>JavaScript</span></div>
-                </div>
-                <div class="glass-card tech-category reveal" style="transition-delay:0.1s">
-                    <h3>Backend</h3>
-                    <div class="tech-item"><span>Node.js</span> <span class="badge">Soon</span></div>
-                    <div class="tech-item"><span>Express</span> <span class="badge">Soon</span></div>
-                    <div class="tech-item"><span>PostgreSQL</span> <span class="badge">Soon</span></div>
-                </div>
-                <div class="glass-card tech-category reveal" style="transition-delay:0.2s">
-                    <h3>AI Engine</h3>
-                    <div class="tech-item"><span>Python</span> <span class="badge">Soon</span></div>
-                    <div class="tech-item"><span>FastAPI</span> <span class="badge">Soon</span></div>
-                    <div class="tech-item"><span>FinBERT</span> <span class="badge">Soon</span></div>
-                    <div class="tech-item"><span>XGBoost</span> <span class="badge">Soon</span></div>
-                </div>
-                <div class="glass-card tech-category reveal" style="transition-delay:0.3s">
-                    <h3>DevOps</h3>
-                    <div class="tech-item"><span>Docker</span> <span class="badge">Soon</span></div>
-                    <div class="tech-item"><span>GitHub</span> <span class="badge">Soon</span></div>
-                    <div class="tech-item"><span>Redis</span> <span class="badge">Soon</span></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Roadmap -->
-    <section class="roadmap" id="roadmap">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="reveal">Development Roadmap</h2>
-                <p class="reveal">Our journey to intelligent investing.</p>
-            </div>
-            <div class="timeline">
-                <div class="timeline-item completed">
-                    <div class="content">Frontend UI</div>
-                    <div class="icon"><i class="bi bi-check2"></i></div>
-                </div>
-                <div class="timeline-item completed">
-                    <div class="content">Landing Page</div>
-                    <div class="icon"><i class="bi bi-check2"></i></div>
-                </div>
-                <div class="timeline-item completed">
-                    <div class="content">Authentication UI</div>
-                    <div class="icon"><i class="bi bi-check2"></i></div>
-                </div>
-                <div class="timeline-item">
-                    <div class="content">Backend APIs</div>
-                    <div class="icon"><i class="bi bi-circle"></i></div>
-                </div>
-                <div class="timeline-item">
-                    <div class="content">Database & Market APIs</div>
-                    <div class="icon"><i class="bi bi-circle"></i></div>
-                </div>
-                <div class="timeline-item">
-                    <div class="content">AI Engine & Intelligence</div>
-                    <div class="icon"><i class="bi bi-circle"></i></div>
-                </div>
             </div>
         </div>
     </section>

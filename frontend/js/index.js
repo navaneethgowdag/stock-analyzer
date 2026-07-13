@@ -48,6 +48,19 @@ function initTheme() {
 
 // --- Navbar Scroll Logic ---
 function initNavbar() {
+
+    const userNav = document.getElementById("user-nav");
+    const userName = document.getElementById("user-name");
+
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (user) {
+
+        userNav.style.display = "block";
+
+        userName.innerText = `Hi, ${user.full_name}`;
+
+    }
     const navbar = document.querySelector('.navbar');
     if (!navbar) return;
 
@@ -122,4 +135,69 @@ document.addEventListener('DOMContentLoaded', () => {
     initMobileMenu();
     initReveal();
     initParallax();
+});
+
+// ==============================
+// Authentication Navbar
+// ==============================
+
+function initAuthNavbar() {
+
+    const loginNav = document.getElementById("login-nav");
+    const registerNav = document.getElementById("register-nav");
+    const logoutNav = document.getElementById("logout-nav");
+    const logoutBtn = document.getElementById("logout-btn");
+
+    const token = localStorage.getItem("token");
+
+    if (token) {
+
+        if (loginNav) loginNav.style.display = "none";
+
+        if (registerNav) registerNav.style.display = "none";
+
+        if (logoutNav) logoutNav.style.display = "block";
+
+    }
+
+    else {
+
+        if (loginNav) loginNav.style.display = "block";
+
+        if (registerNav) registerNav.style.display = "block";
+
+        if (logoutNav) logoutNav.style.display = "none";
+
+    }
+
+    if (logoutBtn) {
+
+        logoutBtn.addEventListener("click", () => {
+
+            localStorage.removeItem("token");
+
+            localStorage.removeItem("user");
+
+            window.location.href = "login.html";
+
+        });
+
+    }
+
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    initTheme();
+
+    initNavbar();
+
+    initMobileMenu();
+
+    initReveal();
+
+    initParallax();
+
+    initAuthNavbar();
+
 });
