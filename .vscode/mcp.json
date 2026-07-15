@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "postgres": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@edelciomolina/postgres-mcp",
+        "--env-file",
+        "backend/.env"
+      ],
+      "env": {
+        "MCP_KEY_URL": "DATABASE_URL"
+      }
+    }
+  }
+}
