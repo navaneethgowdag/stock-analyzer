@@ -196,47 +196,65 @@ ul { list-style: none; }
 }
 
 /* =========================================
-   SCROLL-DRIVEN FINANCIAL FLOATERS
-   Bitcoin glyphs, signal arrows, coins that
-   drift upward off the tape as you scroll.
-   Requires modern browser (Chrome 115+, Edge 115+).
-   Falls back gracefully to ambient float.
+   SCROLL PROGRESS BAR
    ========================================= */
 
-@keyframes floaterRise {
-    0% {
-        transform: translateY(140px) translateX(-30px) rotate(-8deg) scale(0.5);
-        opacity: 0;
-        filter: blur(3px);
-    }
-    18% { opacity: 0.85; filter: blur(0px); }
-    82% { opacity: 0.85; filter: blur(0px); }
-    100% {
-        transform: translateY(-160px) translateX(30px) rotate(10deg) scale(1.05);
-        opacity: 0;
-        filter: blur(3px);
-    }
+.scroll-progress {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 3px;
+    z-index: 1200;
+    background: transparent;
+    pointer-events: none;
 }
 
-@keyframes floaterRiseReverse {
-    0% {
-        transform: translateY(140px) translateX(30px) rotate(8deg) scale(0.5);
-        opacity: 0;
-        filter: blur(3px);
-    }
-    18% { opacity: 0.85; filter: blur(0px); }
-    82% { opacity: 0.85; filter: blur(0px); }
-    100% {
-        transform: translateY(-160px) translateX(-30px) rotate(-10deg) scale(1.05);
-        opacity: 0;
-        filter: blur(3px);
-    }
+.scroll-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
+    box-shadow: 0 0 12px var(--accent-glow);
+    transition: width 0.08s linear;
+}
+
+/* =========================================
+   SCROLL-REACTIVE FINANCIAL FLOATERS
+   Coins, bitcoin glyphs, dollar signs and
+   signal arrows that drift, rotate and change
+   depth as the user scrolls. Driven entirely by
+   JS (transform on .floater, set from scroll
+   position) so it works in every browser —
+   the CSS below only supplies the idle bob/spin
+   and the visual styling.
+   ========================================= */
+
+.floater-field {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+@keyframes idleBob {
+    0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+    50% { transform: translateY(-16px) rotate(calc(var(--rot, 0deg) * -1)); }
+}
+
+@keyframes idleSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .floater {
     position: absolute;
     z-index: 1;
     pointer-events: none;
+    will-change: transform;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.floater-inner {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -249,41 +267,43 @@ ul { list-style: none; }
         inset 0 0 6px rgba(0,0,0,0.35),
         0 0 20px var(--accent-glow);
     color: var(--ink-950);
-    animation: floaterRise linear both;
-    animation-timeline: view();
-    animation-range: entry 0% cover 45%;
+    animation: idleBob 6s ease-in-out infinite;
+    opacity: 0.9;
 }
 
-.floater.reverse {
-    animation-name: floaterRiseReverse;
-    animation-range: entry 10% cover 55%;
-}
+.floater.spin .floater-inner { animation: idleSpin 14s linear infinite; }
 
-.floater.signal-up {
+.floater.signal-up .floater-inner {
     background: none;
     border-color: rgba(52, 211, 153, 0.5);
     color: var(--accent-secondary);
     box-shadow: 0 0 16px rgba(52, 211, 153, 0.25);
 }
 
-.floater.signal-down {
+.floater.signal-down .floater-inner {
     background: none;
     border-color: rgba(242, 84, 91, 0.5);
     color: var(--accent-tertiary);
     box-shadow: 0 0 16px rgba(242, 84, 91, 0.25);
 }
 
-.floater-lg { width: 64px; height: 64px; font-size: 1.7rem; }
-.floater-md { width: 46px; height: 46px; font-size: 1.2rem; }
-.floater-sm { width: 32px; height: 32px; font-size: 0.95rem; }
-
-/* Fallback for browsers without scroll-driven animation */
-@supports not (animation-timeline: view()) {
-    .floater { opacity: 0.35; animation: float 6s ease-in-out infinite; }
+.floater.outline .floater-inner {
+    background: none;
+    border-color: var(--border-highlight);
+    color: var(--accent-primary);
+    box-shadow: 0 0 16px var(--accent-glow);
 }
 
-@media (max-width: 1024px) {
-    .floater { display: none; }
+.floater-lg .floater-inner { width: 64px; height: 64px; font-size: 1.7rem; }
+.floater-md .floater-inner { width: 46px; height: 46px; font-size: 1.2rem; }
+.floater-sm .floater-inner { width: 32px; height: 32px; font-size: 0.95rem; }
+
+@media (prefers-reduced-motion: reduce) {
+    .floater, .floater-inner { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 900px) {
+    .floater-field { display: none; }
 }
 
 /* =========================================
@@ -838,6 +858,87 @@ ul { list-style: none; }
     font-size: 0.8rem; margin-top: 16px; text-align: center;
 }
 
+/* Watchlist Widget */
+.add-stock {
+    display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+}
+
+.add-stock input {
+    flex: 1; min-width: 120px; padding: 12px 14px;
+    background: var(--bg-glass); border: 1px solid var(--border-glass);
+    border-radius: 6px; color: var(--text-primary); font-size: 0.9rem;
+    font-family: var(--font-mono); outline: none; transition: all 0.3s ease;
+}
+
+.add-stock input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+    background: var(--bg-card);
+}
+
+.add-stock input::placeholder { color: var(--text-secondary); opacity: 0.7; }
+
+#add-stock-btn {
+    padding: 12px 22px; border: none; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--coin-dark));
+    color: #06100c; font-family: var(--font-mono); font-weight: 700;
+    font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em;
+    cursor: pointer; transition: all 0.3s ease;
+    box-shadow: 0 4px 15px var(--accent-glow);
+}
+
+#add-stock-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px var(--accent-glow); }
+
+.watchlist-section h2 {
+    font-family: var(--font-display); font-size: 1.2rem;
+    font-weight: 600; margin-bottom: 16px;
+}
+
+#watchlist {
+    display: flex; flex-direction: column; gap: 10px;
+    max-height: 320px; overflow-y: auto;
+}
+
+#watchlist p { color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.85rem; }
+
+.watch-card {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; background: var(--bg-glass);
+    border: 1px solid var(--border-glass); border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.watch-card:hover {
+    border-color: var(--border-highlight);
+    background: var(--bg-card);
+    transform: translateX(4px);
+}
+
+.watch-card h3 {
+    font-family: var(--font-mono); font-size: 0.95rem;
+    color: var(--text-primary); letter-spacing: 0.02em;
+}
+
+.watch-card p { color: var(--text-secondary); font-size: 0.8rem; margin-top: 2px; }
+
+.delete-btn {
+    padding: 8px 14px; border-radius: 5px; border: 1px solid var(--accent-tertiary);
+    background: transparent; color: var(--accent-tertiary);
+    font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.05em; cursor: pointer; transition: all 0.3s ease;
+    flex-shrink: 0; margin-left: 12px;
+}
+
+.delete-btn:hover { background: rgba(242, 84, 91, 0.12); box-shadow: 0 0 12px rgba(242, 84, 91, 0.25); }
+
+.empty-watchlist {
+    text-align: center; padding: 24px 0; color: var(--text-secondary);
+    font-family: var(--font-mono); font-size: 0.85rem;
+}
+
+#watchlist::-webkit-scrollbar { width: 6px; }
+#watchlist::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 3px; }
+
 /* AI Workflow */
 .workflow-container {
     display: flex; flex-direction: column;
@@ -991,6 +1092,8 @@ ul { list-style: none; }
     align-items: center; justify-content: center;
     position: relative; overflow: hidden; padding: 40px;
 }
+
+.auth-left .floater-field { position: absolute; }
 
 .auth-left .blob-1 { top: 20%; left: 20%; }
 .auth-left .blob-2 { bottom: 20%; right: 20%; }
