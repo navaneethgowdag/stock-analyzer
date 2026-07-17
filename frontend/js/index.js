@@ -110,6 +110,59 @@ function initReveal() {
     });
 }
 
+// --- Scroll Progress Bar ---
+function initScrollProgress() {
+    const bar = document.getElementById('scroll-progress-bar');
+    if (!bar) return;
+
+    function update() {
+        const scrollTop = window.scrollY;
+        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+        bar.style.width = pct + '%';
+    }
+
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+}
+
+// --- Scroll-Reactive Floaters (coins, $ signs, bitcoin, arrows) ---
+function initFloaters() {
+    const floaters = document.querySelectorAll('.floater');
+    if (!floaters.length) return;
+
+    let ticking = false;
+
+    function updateFloaters() {
+        const scrollY = window.scrollY;
+
+        floaters.forEach((el) => {
+            const speed = parseFloat(el.dataset.speed || '0.15');
+            const drift = parseFloat(el.dataset.drift || '0');
+            const rotate = parseFloat(el.dataset.rotate || '0');
+
+            const offsetY = -(scrollY * speed);
+            const offsetX = Math.sin(scrollY / 260) * drift;
+            const rot = (scrollY / 18) * rotate;
+
+            el.style.transform =
+                `translate(${offsetX}px, ${offsetY}px) rotate(${rot}deg)`;
+        });
+
+        ticking = false;
+    }
+
+    function onScroll() {
+        if (!ticking) {
+            requestAnimationFrame(updateFloaters);
+            ticking = true;
+        }
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    updateFloaters();
+}
+
 // --- Parallax Mouse Movement (Hero) ---
 function initParallax() {
     const hero = document.querySelector('.hero');
@@ -127,15 +180,6 @@ function initParallax() {
         });
     });
 }
-
-// Initialize all functions on DOM load
-document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    initNavbar();
-    initMobileMenu();
-    initReveal();
-    initParallax();
-});
 
 // ==============================
 // Authentication Navbar
@@ -199,5 +243,9 @@ document.addEventListener("DOMContentLoaded", () => {
     initParallax();
 
     initAuthNavbar();
+
+    initScrollProgress();
+
+    initFloaters();
 
 });
