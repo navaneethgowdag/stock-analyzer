@@ -20,12 +20,14 @@ app.get("/", (req, res) => {
     });
 });
 
-const dashboardRoutes = require("./routes/dashboardRoutes");
+const portfolioRoutes = require("./routes/portfolioRoutes");
+app.use("/api/portfolio", portfolioRoutes);
+console.log("Portfolio routes registered");
 
+const dashboardRoutes = require("./routes/dashboardRoutes");
 app.use("/api/dashboard", dashboardRoutes);
 
 const watchlistRoutes = require("./routes/watchlistRoutes");
-
 app.use("/api/watchlist",watchlistRoutes);
 
 module.exports = app;
