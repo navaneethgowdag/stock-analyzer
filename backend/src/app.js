@@ -30,4 +30,7 @@ app.use("/api/dashboard", dashboardRoutes);
 const watchlistRoutes = require("./routes/watchlistRoutes");
 app.use("/api/watchlist",watchlistRoutes);
 
+const newsRoutes = require("./routes/newsRoutes");
+app.use("/api/news", newsRoutes);
+
 module.exports = app;

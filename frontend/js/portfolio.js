@@ -1,5 +1,8 @@
 const PORT_API_URL = "http://localhost:5000/api/portfolio/overview";
 
+const token = localStorage.getItem("token");
+console.log("Portfolio token:", token);
+
 document.addEventListener("DOMContentLoaded", () => {
     loadPortfolioOverview();
 });
@@ -7,39 +10,39 @@ document.addEventListener("DOMContentLoaded", () => {
 async function loadPortfolioOverview() {
 
     try {
+
         const token = localStorage.getItem("token");
 
-        if (!token) return;
+        console.log("Portfolio token:", token);
 
         const response = await fetch(PORT_API_URL, {
             method: "GET",
             headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
             }
         });
 
+        console.log("Status:", response.status);
 
-        if (!response.ok) {
-            throw new Error("Failed to fetch portfolio overview");
-        }
+        const text = await response.text();
 
-        const data = await response.json();
+        console.log("Raw Response:", text);
+
+        const data = JSON.parse(text);
+
+        console.log("Parsed Data:", data);
 
         renderPortfolioOverview(data);
-    
 
-    } catch (error) {
-        console.error("Portfolio Overview Error:", error);
-
-        document.getElementById("portfolio-overview").innerHTML = `
-            <p class="widget-message">
-                Unable to load portfolio overview.
-            </p>
-        `;
     }
-}
+    catch(err){
 
+        console.error("Portfolio Error:", err);
+
+    }
+
+}
 function renderPortfolioOverview(data) {
 
     const container = document.getElementById("portfolio-overview");
@@ -97,3 +100,17 @@ function formatDate(date) {
 
     return new Date(date).toLocaleString();
 }
+
+async function getPortfolioOverview(req, res) {
+
+    console.log("User:", req.user);
+
+    const data = await portfolioService.getPortfolioOverview(req.user.id);
+
+    console.log("Sending:", data);
+
+    res.json(data);
+
+}
+
+window.loadPortfolioOverview = loadPortfolioOverview;

@@ -220,17 +220,16 @@
 
                     <div class="add-stock">
 
-                        <input
-                            type="text"
-                            id="stock-symbol"
-                            placeholder="Stock Symbol"
-                        >
+                <select id="stock-symbol" class="stock-select">
+                    <option value="">Select Stock</option>
+                </select>
 
-                        <input
-                            type="text"
-                            id="company-name"
-                            placeholder="Company Name"
-                        >
+                <input
+                    type="text"
+                    id="company-name"
+                    placeholder="Company Name"
+                    readonly
+                >
 
                         <button id="add-stock-btn">
                             Add Stock
@@ -276,17 +275,29 @@
 
                 <!-- News -->
                 <div class="glass-card dash-widget reveal">
+
                     <div class="widget-header">
-                        <h3>News Feed</h3>
+
+                        <h3>Latest Stock News</h3>
+
                         <div class="widget-status">
+
                             <div class="status-dot"></div>
-                            <span>Disconnected</span>
+
+                            <span>Live</span>
+
                         </div>
+
                     </div>
-                    <div class="skeleton skeleton-text"></div>
-                    <div class="skeleton skeleton-text"></div>
-                    <div class="skeleton skeleton-text"></div>
-                    <p class="widget-message">Financial news will load here</p>
+
+                    <div id="news-container">
+
+                        <p class="widget-message">
+                            Loading latest news...
+                        </p>
+
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -377,5 +388,7 @@
     <script src="js/index.js"></script>
     <script src="js/watchlist.js"></script>
     <script src="js/portfolio.js"></script>
+    <script src="js/stocks.js"></script>
+    <script src="js/news.js"></script>
 </body>
 </html>

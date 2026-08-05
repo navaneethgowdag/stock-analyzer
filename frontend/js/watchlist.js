@@ -39,7 +39,7 @@ async function addStock(symbol, companyName) {
 
         if (!response.ok) {
 
-            alert(data.message || "Unable to add stock.");
+            alert("Duplicate Can Not Added!!");
 
             return;
 
@@ -48,7 +48,7 @@ async function addStock(symbol, companyName) {
         document.getElementById("stock-symbol").value = "";
         document.getElementById("company-name").value = "";
 
-        loadWatchlist();
+        await refreshDashboard();
 
     }
 
@@ -174,7 +174,7 @@ async function deleteStock(id) {
 
         }
 
-        loadWatchlist();
+        await refreshDashboard();
 
     }
 
@@ -222,3 +222,21 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
 });
+
+// ==========================================
+// Refresh Dashboard
+// ==========================================
+
+async function refreshDashboard() {
+
+    await loadWatchlist();
+
+    if(window.loadPortfolioOverview){
+        await window.loadPortfolioOverview();
+    }
+
+    if(window.loadNews){
+        await window.loadNews();
+    }
+
+}
