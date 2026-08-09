@@ -239,4 +239,14 @@ async function refreshDashboard() {
         await window.loadNews();
     }
 
+    if (window.loadAlerts) {
+        await window.loadAlerts();
+    }
+
+    if (window.loadMarketData){
+        await window.loadMarketData();
+    }
+
+
+
 }

@@ -1781,3 +1781,879 @@ ul { list-style: none; }
     }
 
 }
+
+/* ==========================================
+   LATEST ALERTS - SAME STYLE AS NEWS
+========================================== */
+
+.alerts-widget {
+    height: 360px;
+    min-height: 360px;
+    overflow: hidden;
+}
+
+
+/* ==========================================
+   Alerts Container
+========================================== */
+
+.alerts-container {
+    height: 285px;
+    overflow-y: auto;
+    padding: 8px 2px;
+}
+
+
+/* Scrollbar */
+
+.alerts-container::-webkit-scrollbar {
+    width: 5px;
+}
+
+.alerts-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.alerts-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+
+/* ==========================================
+   Stock Alert List
+========================================== */
+
+.alert-stock-item {
+    width: 100%;
+    min-height: 58px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 12px 15px;
+    margin-bottom: 8px;
+
+    box-sizing: border-box;
+
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+
+    background: var(--glass-bg);
+
+    cursor: pointer;
+
+    transition:
+        background 0.25s ease,
+        border-color 0.25s ease,
+        transform 0.2s ease;
+}
+
+
+/* Hover */
+
+.alert-stock-item:hover {
+    background: rgba(128, 128, 128, 0.10);
+
+    border-color: var(--accent-primary);
+
+    transform: translateY(-1px);
+}
+
+
+/* ==========================================
+   Left Side
+========================================== */
+
+.alert-stock-left {
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    min-width: 0;
+}
+
+
+/* ==========================================
+   Severity Dot
+========================================== */
+
+.alert-severity-dot {
+    width: 8px;
+    height: 8px;
+
+    min-width: 8px;
+
+    border-radius: 50%;
+}
+
+
+/* Positive */
+
+.alert-severity-positive {
+    background: #22c55e;
+
+    box-shadow:
+        0 0 7px rgba(34, 197, 94, 0.45);
+}
+
+
+/* Negative */
+
+.alert-severity-negative {
+    background: #ef4444;
+
+    box-shadow:
+        0 0 7px rgba(239, 68, 68, 0.45);
+}
+
+
+/* Warning */
+
+.alert-severity-warning {
+    background: #f59e0b;
+
+    box-shadow:
+        0 0 7px rgba(245, 158, 11, 0.45);
+}
+
+
+/* Neutral */
+
+.alert-severity-neutral {
+    background: #94a3b8;
+}
+
+
+/* ==========================================
+   Stock Name
+========================================== */
+
+.alert-stock-symbol {
+    font-size: 14px;
+
+    font-weight: 600;
+
+    color: var(--text-primary);
+
+    white-space: nowrap;
+}
+
+
+/* ==========================================
+   Alert Count
+========================================== */
+
+.alert-stock-count {
+    margin-top: 3px;
+
+    font-size: 11px;
+
+    color: var(--text-secondary);
+}
+
+
+/* ==========================================
+   Arrow
+========================================== */
+
+.alert-stock-arrow {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 28px;
+    height: 28px;
+
+    border-radius: 8px;
+
+    color: var(--text-secondary);
+
+    font-size: 17px;
+
+    transition:
+        color 0.2s ease,
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+
+.alert-stock-item:hover .alert-stock-arrow {
+    color: var(--accent-primary);
+
+    background: rgba(128, 128, 128, 0.10);
+
+    transform: translateX(2px);
+}
+
+
+/* ==========================================
+   Loading
+========================================== */
+
+.alerts-loading {
+    height: 220px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+}
+
+
+/* ==========================================
+   Empty
+========================================== */
+
+.alerts-empty {
+    height: 220px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+    text-align: center;
+}
+
+
+/* ==========================================
+   ALERT MODAL
+========================================== */
+
+.alert-modal {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 9999;
+
+    display: none;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(0, 0, 0, 0.60);
+
+    backdrop-filter: blur(8px);
+}
+
+
+.alert-modal.active {
+    display: flex;
+}
+
+
+/* ==========================================
+   Modal Box
+========================================== */
+
+.alert-modal-content {
+    width: min(680px, 95vw);
+
+    max-height: 82vh;
+
+    overflow: hidden;
+
+    border: 1px solid var(--border-color);
+
+    border-radius: 16px;
+
+    background: var(--glass-bg);
+
+    backdrop-filter: blur(20px);
+
+    box-shadow:
+        0 25px 70px rgba(0, 0, 0, 0.35);
+
+    animation: alertModalIn 0.2s ease;
+}
+
+
+@keyframes alertModalIn {
+
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+}
+
+
+/* ==========================================
+   Modal Header
+========================================== */
+
+.alert-modal-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 18px 20px;
+
+    border-bottom: 1px solid var(--border-color);
+}
+
+
+.alert-modal-header h2 {
+    margin: 0;
+
+    font-size: 18px;
+
+    font-weight: 600;
+
+    color: var(--text-primary);
+}
+
+
+.alert-modal-header span {
+    display: block;
+
+    margin-top: 4px;
+
+    font-size: 12px;
+
+    color: var(--text-secondary);
+}
+
+
+/* ==========================================
+   Close Button
+========================================== */
+
+.alert-modal-close {
+    width: 32px;
+    height: 32px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+
+    border: 1px solid var(--border-color);
+
+    border-radius: 8px;
+
+    background: transparent;
+
+    color: var(--text-secondary);
+
+    font-size: 21px;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+}
+
+
+.alert-modal-close:hover {
+    color: var(--text-primary);
+
+    background: rgba(128, 128, 128, 0.10);
+
+    border-color: var(--accent-primary);
+}
+
+
+/* ==========================================
+   Modal Body
+========================================== */
+
+.alert-modal-body {
+    max-height: calc(82vh - 90px);
+
+    overflow-y: auto;
+
+    padding: 16px 20px;
+}
+
+
+/* Scrollbar */
+
+.alert-modal-body::-webkit-scrollbar {
+    width: 5px;
+}
+
+.alert-modal-body::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+
+    border-radius: 10px;
+}
+
+
+/* ==========================================
+   Individual Alert
+========================================== */
+
+.alert-detail {
+    padding: 14px 15px;
+
+    margin-bottom: 10px;
+
+    border: 1px solid var(--border-color);
+
+    border-radius: 12px;
+
+    background: rgba(128, 128, 128, 0.05);
+
+    transition: border-color 0.2s ease;
+}
+
+
+.alert-detail:hover {
+    border-color: var(--accent-primary);
+}
+
+
+.alert-detail:last-child {
+    margin-bottom: 0;
+}
+
+
+/* ==========================================
+   Alert Top Row
+========================================== */
+
+.alert-detail-top {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    margin-bottom: 8px;
+}
+
+
+.alert-detail-type {
+    font-size: 11px;
+
+    font-weight: 600;
+
+    letter-spacing: 0.4px;
+
+    color: var(--accent-primary);
+}
+
+
+/* ==========================================
+   Severity Badge
+========================================== */
+
+.alert-detail-severity {
+    padding: 4px 8px;
+
+    border-radius: 6px;
+
+    font-size: 10px;
+
+    font-weight: 600;
+
+    text-transform: uppercase;
+}
+
+
+.alert-positive {
+    color: #22c55e;
+
+    background: rgba(34, 197, 94, 0.10);
+}
+
+
+.alert-negative {
+    color: #ef4444;
+
+    background: rgba(239, 68, 68, 0.10);
+}
+
+
+.alert-warning {
+    color: #f59e0b;
+
+    background: rgba(245, 158, 11, 0.10);
+}
+
+
+.alert-neutral {
+    color: var(--text-secondary);
+
+    background: rgba(128, 128, 128, 0.10);
+}
+
+
+/* ==========================================
+   Alert Title
+========================================== */
+
+.alert-detail-title {
+    margin: 0 0 6px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    line-height: 1.4;
+
+    color: var(--text-primary);
+}
+
+
+/* ==========================================
+   Alert Message
+========================================== */
+
+.alert-detail-message {
+    margin: 0;
+
+    font-size: 12px;
+
+    line-height: 1.5;
+
+    color: var(--text-secondary);
+}
+
+
+/* ==========================================
+   Footer
+========================================== */
+
+.alert-detail-footer {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    margin-top: 11px;
+
+    padding-top: 9px;
+
+    border-top: 1px solid var(--border-color);
+
+    font-size: 10px;
+
+    color: var(--text-secondary);
+}
+
+
+/* ==========================================
+   LIGHT MODE
+========================================== */
+
+[data-theme="light"] .alert-stock-item,
+[data-theme="light"] .alert-detail {
+    background: rgba(255, 255, 255, 0.65);
+
+    border-color: rgba(0, 0, 0, 0.12);
+}
+
+
+[data-theme="light"] .alert-stock-item:hover {
+    background: rgba(255, 255, 255, 0.90);
+
+    border-color: var(--accent-primary);
+}
+
+
+[data-theme="light"] .alert-modal-content {
+    background: rgba(255, 255, 255, 0.96);
+
+    border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* ==========================================
+   MARKET WIDGET
+========================================== */
+
+.market-widget {
+    height: 360px;
+    min-height: 360px;
+    overflow: hidden;
+}
+
+
+/* ==========================================
+   MARKET CONTAINER
+========================================== */
+
+.market-container {
+    height: 285px;
+
+    overflow-y: auto;
+
+    padding: 8px 2px;
+}
+
+
+/* Scrollbar */
+
+.market-container::-webkit-scrollbar {
+    width: 5px;
+}
+
+.market-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.market-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+
+/* ==========================================
+   STOCK ITEM
+========================================== */
+
+.market-stock-item {
+
+    width: 100%;
+
+    min-height: 64px;
+
+    box-sizing: border-box;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 11px 15px;
+
+    margin-bottom: 8px;
+
+    border: 1px solid var(--border-color);
+
+    border-radius: 12px;
+
+    background: var(--glass-bg);
+
+    cursor: pointer;
+
+    transition:
+        transform 0.2s ease,
+        background 0.2s ease,
+        border-color 0.2s ease;
+}
+
+
+.market-stock-item:hover {
+
+    transform: translateY(-1px);
+
+    background:
+        rgba(128, 128, 128, 0.08);
+
+    border-color:
+        var(--accent-primary);
+}
+
+
+/* ==========================================
+   LEFT SIDE
+========================================== */
+
+.market-stock-left {
+
+    min-width: 0;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+}
+
+
+.market-stock-symbol {
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    color: var(--text-primary);
+}
+
+
+.market-company-name {
+
+    max-width: 180px;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+
+    font-size: 11px;
+
+    color: var(--text-secondary);
+}
+
+
+/* ==========================================
+   RIGHT SIDE
+========================================== */
+
+.market-stock-right {
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-end;
+
+    gap: 4px;
+
+    flex-shrink: 0;
+}
+
+
+.market-price {
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+    color: var(--text-primary);
+}
+
+
+.market-change {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 4px;
+
+    font-size: 11px;
+
+    font-weight: 600;
+}
+
+
+.market-arrow {
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+
+/* ==========================================
+   UP
+========================================== */
+
+.market-up {
+
+    color: #22c55e;
+}
+
+
+/* ==========================================
+   DOWN
+========================================== */
+
+.market-down {
+
+    color: #ef4444;
+}
+
+
+/* ==========================================
+   NEUTRAL
+========================================== */
+
+.market-neutral {
+
+    color: var(--text-secondary);
+}
+
+
+/* ==========================================
+   LOADING
+========================================== */
+
+.market-loading {
+
+    height: 220px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+}
+
+
+/* ==========================================
+   EMPTY
+========================================== */
+
+.market-empty {
+
+    height: 220px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    text-align: center;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+}
+
+
+/* ==========================================
+   LIGHT MODE
+========================================== */
+
+[data-theme="light"] .market-stock-item {
+
+    background:
+        rgba(255, 255, 255, 0.65);
+
+    border-color:
+        rgba(0, 0, 0, 0.12);
+}
+
+
+[data-theme="light"] .market-stock-item:hover {
+
+    background:
+        rgba(255, 255, 255, 0.90);
+
+    border-color:
+        var(--accent-primary);
+}

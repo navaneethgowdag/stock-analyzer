@@ -203,33 +203,103 @@
                     </div>
                 </div>
 
-                <!-- Market Data -->
-                <div class="glass-card dash-widget reveal">
+                <!-- ==========================================
+                    MARKET
+                ========================================== -->
+
+                <div class="glass-card dash-widget market-widget reveal">
+
                     <div class="widget-header">
-                        <h3>Market Data</h3>
+
+                        <h3>Market</h3>
+
                         <div class="widget-status">
+
                             <div class="status-dot"></div>
-                            <span>Offline</span>
+
+                            <span>Live</span>
+
                         </div>
+
                     </div>
-                    <div class="skeleton skeleton-text"></div>
-                    <div class="skeleton skeleton-text"></div>
-                    <div class="skeleton skeleton-text"></div>
-                    <p class="widget-message">Connect API to stream live prices</p>
+
+
+                    <div
+                        id="market-container"
+                        class="market-container"
+                    >
+
+                        <div class="market-loading">
+                            Loading market data...
+                        </div>
+
+                    </div>
+
                 </div>
 
-                <!-- Alerts -->
-                <div class="glass-card dash-widget reveal">
+                <!-- ==========================================
+                    Latest Alerts
+                ========================================== -->
+
+                <div class="glass-card dash-widget reveal alerts-widget">
+
                     <div class="widget-header">
+
                         <h3>Latest Alerts</h3>
+
                         <div class="widget-status">
                             <div class="status-dot"></div>
-                            <span>Standby</span>
+                            <span>Live</span>
                         </div>
+
                     </div>
-                    <div class="skeleton skeleton-text"></div>
-                    <div class="skeleton skeleton-text"></div>
-                    <p class="widget-message">AI alerts will appear here</p>
+
+                    <div id="alerts-container" class="alerts-container">
+
+                        <div class="alerts-loading">
+                            Loading alerts...
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ==========================================
+                    Alert Stock Modal
+                ========================================== -->
+
+                <div id="alert-modal" class="alert-modal">
+
+                    <div class="alert-modal-content">
+
+                        <div class="alert-modal-header">
+
+                            <div>
+                                <h2 id="alert-modal-title">
+                                    Stock Alerts
+                                </h2>
+
+                                <span id="alert-modal-subtitle">
+                                    Alert information
+                                </span>
+                            </div>
+
+                            <button
+                                id="close-alert-modal"
+                                class="alert-modal-close">
+                                &times;
+                            </button>
+
+                        </div>
+
+                        <div
+                            id="alert-modal-body"
+                            class="alert-modal-body">
+                        </div>
+
+                    </div>
+
                 </div>
 
                 <!-- News -->
@@ -391,5 +461,7 @@
     <script src="js/portfolio.js"></script>
     <script src="js/stocks.js"></script>
     <script src="js/news.js"></script>
+    <script src="js/alert.js"></script>
+    <script src="js/market.js"></script>
 </body>
 </html>

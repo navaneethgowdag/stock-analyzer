@@ -33,4 +33,21 @@ app.use("/api/watchlist",watchlistRoutes);
 const newsRoutes = require("./routes/newsRoutes");
 app.use("/api/news", newsRoutes);
 
+const alertRoutes =
+    require("./routes/alertRoutes");
+
+app.use(
+    "/api/alerts",
+    alertRoutes
+);
+
+const marketRoutes =
+    require("./routes/marketRoutes");
+
+app.use(
+    "/api/market",
+    marketRoutes
+);
+
+
 module.exports = app;

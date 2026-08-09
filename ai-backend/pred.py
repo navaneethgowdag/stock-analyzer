@@ -9,9 +9,13 @@ import psycopg2
 import psycopg2.extras
 from apscheduler.schedulers.blocking import BlockingScheduler
 from dotenv import load_dotenv
+from pathlib import Path
+from datetime import datetime
+
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
+BASE_DIR = Path(__file__).resolve().parent
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("stock_pipeline")
 
@@ -26,14 +30,25 @@ if not DATABASE_URL or "localhost" in DATABASE_URL:
         "  - No quotes, no 'export ', no trailing spaces, no BOM (save as plain UTF-8, not 'UTF-8 with BOM')."
     )
 
-MODELS_DIR = os.environ.get("MODELS_DIR", os.path.join(BASE_DIR, "models"))
+MODELS_DIR = BASE_DIR / "models"
 ENABLE_SENTIMENT = os.environ.get("ENABLE_SENTIMENT", "true").lower() == "true"
 MAX_HEADLINES = int(os.environ.get("MAX_HEADLINES", "10"))
-
+print("BASE_DIR:", BASE_DIR)
+print("MODELS_DIR:", MODELS_DIR)
+print("MODEL EXISTS:", (MODELS_DIR / "portfolio_models_dict.pkl").exists())
 EXCHANGE_SUFFIX = {"NSE": ".NS", "BSE": ".BO"}
 BUY_THRESHOLD, SELL_THRESHOLD = 0.70, 0.40
 WEIGHT_MODEL, WEIGHT_SENTIMENT = 0.70, 0.30
 LOOKBACK_PERIOD = "2y"
+
+from urllib.parse import urlparse
+
+if DATABASE_URL:
+    parsed = urlparse(DATABASE_URL)
+    print("DATABASE HOST:", parsed.hostname)
+    print("DATABASE NAME:", parsed.path)
+else:
+    print("DATABASE_URL is EMPTY")
 
 NIFTY_50_SYMBOLS = [
     "ADANIENT", "ADANIPORTS", "APOLLOHOSP", "ASIANPAINT", "AXISBANK",
@@ -208,6 +223,12 @@ def ensure_predictions_table(conn):
                 updated_at        TIMESTAMPTZ DEFAULT now()
             );
         """)
+
+        cur.execute("""
+            ALTER TABLE predictions
+            ADD COLUMN IF NOT EXISTS previous_close NUMERIC(12, 2);
+        """)
+        
         cur.execute("""
             CREATE TABLE IF NOT EXISTS news_sentiment (
                 id          SERIAL PRIMARY KEY,
@@ -216,37 +237,343 @@ def ensure_predictions_table(conn):
                 label       TEXT,
                 score       NUMERIC,
                 confidence  NUMERIC,
-                created_at  TIMESTAMPTZ DEFAULT now(),
+                updated_at  TIMESTAMPTZ DEFAULT now(),
                 UNIQUE (ticker, headline)
             );
         """)
+        
     conn.commit()
+def ensure_price_history_table(conn):
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS price_history (
+                id          BIGSERIAL PRIMARY KEY,
+                ticker      TEXT NOT NULL,
+                price       NUMERIC NOT NULL,
+                recorded_at TIMESTAMPTZ DEFAULT now()
+            );
 
+            CREATE INDEX IF NOT EXISTS idx_price_history_ticker_time
+            ON price_history(ticker, recorded_at DESC);
+        """)
+
+    conn.commit()
+    
+    
+def ensure_alerts_table(conn):
+    """
+    Create the alerts table if it does not already exist.
+    """
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS alerts (
+                id BIGSERIAL PRIMARY KEY,
+
+                ticker TEXT NOT NULL,
+
+                alert_type TEXT NOT NULL,
+
+                title TEXT NOT NULL,
+
+                message TEXT NOT NULL,
+
+                severity TEXT NOT NULL,
+
+                value NUMERIC,
+
+                reference_id TEXT,
+
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_alerts_ticker_created
+            ON alerts(ticker, created_at DESC);
+        """)
+
+    conn.commit()
+def ensure_news_sentiment_table(conn):
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS news_sentiment (
+                id BIGSERIAL PRIMARY KEY,
+                ticker TEXT NOT NULL,
+                headline TEXT NOT NULL,
+                label TEXT,
+                score NUMERIC,
+                confidence NUMERIC,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+
+                CONSTRAINT news_sentiment_ticker_headline_unique
+                UNIQUE (ticker, headline)
+            );
+        """)
+
+    conn.commit()
 
 def insert_news_sentiment(conn, ticker: str, results: list):
     if not results:
         return
+
     with conn.cursor() as cur:
         psycopg2.extras.execute_values(
             cur,
-            """INSERT INTO news_sentiment (ticker, headline, label, score, confidence)
-               VALUES %s ON CONFLICT (ticker, headline) DO NOTHING;""",
-            [(ticker, r["headline"], r["label"], r["score"], r["confidence"]) for r in results],
+            """
+            INSERT INTO news_sentiment
+                (ticker, headline, label, score, confidence, created_at)
+            VALUES %s
+            ON CONFLICT (ticker, headline)
+            DO UPDATE SET
+                label = EXCLUDED.label,
+                score = EXCLUDED.score,
+                confidence = EXCLUDED.confidence,
+                created_at = NOW();
+            """,
+            [
+                (
+                    ticker,
+                    r["headline"],
+                    r["label"],
+                    r["score"],
+                    r["confidence"],
+                    datetime.now()
+                )
+                for r in results
+            ],
         )
+
+    conn.commit()
+    
+def insert_price_history(conn, ticker: str, price: float):
+    if price is None or price <= 0:
+        return
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO price_history
+                (ticker, price, recorded_at)
+            VALUES
+                (%s, %s, now())
+        """, (ticker, price))
+
     conn.commit()
 
+def insert_alert(
+    conn,
+    ticker: str,
+    alert_type: str,
+    title: str,
+    message: str,
+    severity: str,
+    value=None,
+    reference_id=None,
+):
+    """
+    Insert a new alert into the alerts table.
 
+    Duplicate alerts with the same ticker, type and reference
+    are avoided when a reference_id is supplied.
+    """
+
+    with conn.cursor() as cur:
+
+        if reference_id:
+
+            cur.execute("""
+                SELECT id
+                FROM alerts
+                WHERE ticker = %s
+                  AND alert_type = %s
+                  AND reference_id = %s
+                LIMIT 1;
+            """, (
+                ticker,
+                alert_type,
+                reference_id
+            ))
+
+            if cur.fetchone():
+                return
+
+        cur.execute("""
+            INSERT INTO alerts (
+                ticker,
+                alert_type,
+                title,
+                message,
+                severity,
+                value,
+                reference_id,
+                created_at
+            )
+            VALUES (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                NOW()
+            );
+        """, (
+            ticker,
+            alert_type,
+            title,
+            message,
+            severity,
+            value,
+            reference_id
+        ))
+
+    conn.commit()
+    
+def generate_news_alerts(conn, result: dict):
+    """
+    Generate alerts for strongly positive or negative news.
+
+    FinBERT results are expected to contain:
+        headline
+        label
+        score
+        confidence
+    """
+
+    ticker = result["ticker"]
+
+    news_results = result.get("news_results", [])
+
+    if not news_results:
+        return
+
+    for news in news_results:
+
+        headline = news.get("headline", "").strip()
+        label = str(news.get("label", "")).strip().lower()
+        score = float(news.get("score", 0) or 0)
+        confidence = float(news.get("confidence", 0) or 0)
+
+        if not headline:
+            continue
+
+        # Strong positive news
+        if label == "positive" and confidence >= 0.80:
+
+            insert_alert(
+                conn=conn,
+                ticker=ticker,
+                alert_type="NEWS",
+                title=f"Positive news for {ticker}",
+                message=headline,
+                severity="POSITIVE",
+                value=score,
+                reference_id=f"NEWS:{ticker}:{headline}",
+            )
+
+        # Strong negative news
+        elif label == "negative" and confidence >= 0.80:
+
+            insert_alert(
+                conn=conn,
+                ticker=ticker,
+                alert_type="NEWS",
+                title=f"Negative news for {ticker}",
+                message=headline,
+                severity="NEGATIVE",
+                value=score,
+                reference_id=f"NEWS:{ticker}:{headline}",
+            )
+            
+            
+def generate_price_alert(conn, ticker: str, current_price: float):
+    """
+    Generate an alert when the current price has moved significantly
+    compared with the previous recorded price.
+
+    Threshold:
+        +/- 3%
+    """
+
+    if current_price is None or current_price <= 0:
+        return
+
+    with conn.cursor() as cur:
+
+        cur.execute("""
+            SELECT price
+            FROM price_history
+            WHERE ticker = %s
+            ORDER BY recorded_at DESC
+            LIMIT 1 OFFSET 1;
+        """, (ticker,))
+
+        row = cur.fetchone()
+
+    if not row:
+        return
+
+    previous_price = float(row[0])
+
+    if previous_price <= 0:
+        return
+
+    change_percent = (
+        (current_price - previous_price)
+        / previous_price
+    ) * 100
+
+    # Ignore normal movements
+    if abs(change_percent) < 3:
+        return
+
+    if change_percent > 0:
+
+        alert_type = "PRICE_SURGE"
+        severity = "POSITIVE"
+        title = f"{ticker} price surge"
+
+        message = (
+            f"{ticker} increased by "
+            f"{change_percent:.2f}% "
+            f"from the previous recorded price."
+        )
+
+    else:
+
+        alert_type = "PRICE_DROP"
+        severity = "NEGATIVE"
+        title = f"{ticker} price drop"
+
+        message = (
+            f"{ticker} decreased by "
+            f"{abs(change_percent):.2f}% "
+            f"from the previous recorded price."
+        )
+
+    insert_alert(
+        conn=conn,
+        ticker=ticker,
+        alert_type=alert_type,
+        title=title,
+        message=message,
+        severity=severity,
+        value=round(change_percent, 2),
+        reference_id=None,
+    )
+    
+    
 def upsert_prediction(conn, row: dict):
     with conn.cursor() as cur:
         cur.execute("""
-            INSERT INTO predictions (ticker, symbol, exchange, current_price, prob_up,
+            INSERT INTO predictions (ticker, symbol, exchange, current_price, previous_close, prob_up,
                 pred_direction, sentiment_label, sentiment_score, combined_score,
                 recommendation, updated_at)
-            VALUES (%(ticker)s, %(symbol)s, %(exchange)s, %(current_price)s, %(prob_up)s,
+            VALUES (%(ticker)s, %(symbol)s, %(exchange)s, %(current_price)s, %(previous_close)s, %(prob_up)s,
                 %(pred_direction)s, %(sentiment_label)s, %(sentiment_score)s, %(combined_score)s,
                 %(recommendation)s, now())
             ON CONFLICT (ticker) DO UPDATE SET
                 current_price = EXCLUDED.current_price,
+                previous_close = EXCLUDED.previous_close,
                 prob_up = EXCLUDED.prob_up,
                 pred_direction = EXCLUDED.pred_direction,
                 sentiment_label = EXCLUDED.sentiment_label,
@@ -288,6 +615,8 @@ def process_ticker(symbol: str, exchange: str) -> dict | None:
 
     latest = valid.sort_values("Date").iloc[[-1]]
     last_close = float(latest["Close"].values[0])
+    valid_sorted = valid.sort_values("Date")
+    previous_close = float(valid_sorted["Close"].iloc[-2]) if len(valid_sorted) >= 2 else None
     X_in = latest[feature_columns]
 
     model = portfolio_models[yt]
@@ -314,6 +643,7 @@ def process_ticker(symbol: str, exchange: str) -> dict | None:
         "symbol": symbol,
         "exchange": exchange,
         "current_price": round(price, 2),
+        "previous_close": round(previous_close, 2) if previous_close is not None else None,
         "prob_up": round(prob_up, 4),
         "pred_direction": "UP" if pred_dir == 1 else "DOWN",
         "sentiment_label": sentiment["sentiment_label"],
@@ -322,30 +652,118 @@ def process_ticker(symbol: str, exchange: str) -> dict | None:
         "recommendation": rec,
         "news_results": sentiment["results"],
     }
+    
+def get_user_watchlist(conn):
+    """
+    Fetch all stocks currently present in the watchlist.
+    """
 
+    with conn.cursor() as cur:
+
+        cur.execute("""
+            SELECT
+                id,
+                user_id,
+                symbol,
+                company_name,
+                exchange
+            FROM watchlist
+            ORDER BY id;
+        """)
+
+        rows = cur.fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "user_id": row[1],
+            "symbol": row[2],
+            "company_name": row[3],
+            "exchange": row[4]
+        }
+        for row in rows
+    ]
 
 def run_job():
+
     log.info("Job started")
+
     conn = psycopg2.connect(DATABASE_URL)
+
     try:
         ensure_predictions_table(conn)
-        watchlist = get_nifty50_watchlist()
-        log.info(f"Processing {len(watchlist)} Nifty-50 symbols")
+        ensure_news_sentiment_table(conn)
+        ensure_price_history_table(conn)
+        ensure_alerts_table(conn)
+
+        watchlist = get_user_watchlist(conn)
 
         for entry in watchlist:
-            symbol, exchange = entry["symbol"], entry["exchange"]
-            try:
-                result = process_ticker(symbol, exchange)
-                if result:
-                    upsert_prediction(conn, result)          # push this stock's prediction
-                    insert_news_sentiment(conn, result["ticker"], result["news_results"])  # push its FinBERT news
-                    log.info(f"{result['ticker']}: {result['recommendation']} (score={result['combined_score']})")
-            except Exception as e:
-                log.exception(f"Failed processing {symbol}: {e}")
-    finally:
-        conn.close()
-    log.info("Job finished")
 
+            symbol = entry["symbol"]
+            exchange = entry["exchange"]
+
+            try:
+
+                result = process_ticker(symbol, exchange)
+
+                if result:
+
+                    # 1. Prediction
+                    upsert_prediction(
+                        conn,
+                        result
+                    )
+
+                    # 2. FinBERT news sentiment
+                    insert_news_sentiment(
+                        conn,
+                        result["ticker"],
+                        result["news_results"]
+                    )
+                    
+                    # Generate important news alerts
+                    generate_news_alerts(
+                        conn,
+                        result
+                    )
+
+                    insert_price_history(
+                        conn,
+                        result["ticker"],
+                        result["current_price"]
+                    )
+
+                    # Detect sudden price movement
+                    generate_price_alert(
+                        conn,
+                        result["ticker"],
+                        result["current_price"]
+                    )
+                    
+                    # 4. Important news alerts
+                    generate_news_alerts(
+                        conn,
+                        result
+                    )
+
+                    # 5. Sudden price movement alerts
+                    generate_price_alert(
+                        conn,
+                        result
+                    )
+
+            except Exception as e:
+
+                log.exception(
+                    f"Failed processing {symbol}: {e}"
+                )
+
+    finally:
+
+        conn.close()
+
+    log.info("Job finished")
 
 if __name__ == "__main__":
     run_job()  # run once immediately on startup
