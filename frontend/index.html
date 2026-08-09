@@ -133,48 +133,7 @@
     </section>
 
 
-    <!-- Product Vision -->
-    <section class="product-vision" id="features">
-        <div class="container">
-            <div class="section-header">
-                <div class="eyebrow reveal" style="justify-content:center;">THE VISION</div>
-                <h2 class="reveal">Product Vision</h2>
-                <p class="reveal">A glimpse into the future of intelligent investing.</p>
-            </div>
-            <div class="vision-grid">
-                <div class="glass-card vision-card reveal">
-                    <div class="icon-box"><i class="bi bi-bookmark-star"></i></div>
-                    <h3>Personal Watchlist</h3>
-                    <p>Curate the exact stocks you want to track. No noise, just your strategy.</p>
-                </div>
-                <div class="glass-card vision-card reveal" style="transition-delay: 0.1s;">
-                    <div class="icon-box"><i class="bi bi-cpu"></i></div>
-                    <h3>AI Analysis</h3>
-                    <p>Algorithms that process technicals and sentiment faster than any human.</p>
-                </div>
-                <div class="glass-card vision-card reveal" style="transition-delay: 0.2s;">
-                    <div class="icon-box"><i class="bi bi-activity"></i></div>
-                    <h3>Real-Time Monitoring</h3>
-                    <p>Live data streams feeding directly into your dashboard.</p>
-                </div>
-                <div class="glass-card vision-card reveal" style="transition-delay: 0.3s;">
-                    <div class="icon-box"><i class="bi bi-newspaper"></i></div>
-                    <h3>News Intelligence</h3>
-                    <p>FinBERT scans thousands of articles to gauge market sentiment instantly.</p>
-                </div>
-                <div class="glass-card vision-card reveal" style="transition-delay: 0.4s;">
-                    <div class="icon-box"><i class="bi bi-clock-history"></i></div>
-                    <h3>Historical Backtesting</h3>
-                    <p>Test your strategies against decades of historical market data.</p>
-                </div>
-                <div class="glass-card vision-card reveal" style="transition-delay: 0.5s;">
-                    <div class="icon-box"><i class="bi bi-heart-pulse"></i></div>
-                    <h3>Portfolio Health</h3>
-                    <p>Real-time risk assessment and allocation analysis.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+
 
     <!-- Future Dashboard Preview -->
     <section class="dashboard-preview" id="dashboard-preview">
@@ -274,27 +233,54 @@
                 </div>
 
                 <!-- News -->
-                <div class="glass-card dash-widget reveal">
+                <!-- Latest Stock News -->
+                <div class="glass-card dash-widget news-widget reveal">
 
                     <div class="widget-header">
-
                         <h3>Latest Stock News</h3>
 
                         <div class="widget-status">
-
                             <div class="status-dot"></div>
+                            <span>AI News</span>
+                        </div>
+                    </div>
 
-                            <span>Live</span>
+                    <div id="news-stock-list" class="news-stock-list">
+                        <div class="news-loading">
+                            Loading news...
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <!-- News Popup -->
+                <div id="news-modal" class="news-modal">
+
+                    <div class="news-modal-content">
+
+                        <div class="news-modal-header">
+
+                            <div>
+                                <span class="news-modal-ticker" id="modal-ticker">
+                                    STOCK
+                                </span>
+
+                                <h2>Latest News</h2>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="news-close"
+                                id="news-close">
+                                &times;
+                            </button>
 
                         </div>
 
-                    </div>
-
-                    <div id="news-container">
-
-                        <p class="widget-message">
-                            Loading latest news...
-                        </p>
+                        <div id="modal-news-list">
+                            <!-- News will be inserted here -->
+                        </div>
 
                     </div>
 
@@ -303,30 +289,45 @@
         </div>
     </section>
 
-    <!-- AI Workflow -->
-    <section class="ai-workflow">
+    <!-- Product Vision -->
+    <section class="product-vision" id="features">
         <div class="container">
             <div class="section-header">
-                <div class="eyebrow reveal" style="justify-content:center;">HOW IT WORKS</div>
-                <h2 class="reveal">AI Workflow Engine</h2>
-                <p class="reveal">From registration to intelligent alerts.</p>
+                <div class="eyebrow reveal" style="justify-content:center;">THE VISION</div>
+                <h2 class="reveal">Product Vision</h2>
+                <p class="reveal">A glimpse into the future of intelligent investing.</p>
             </div>
-            <div class="workflow-container reveal">
-                <div class="workflow-step"><i class="bi bi-person-plus"></i> Register</div>
-                <div class="workflow-arrow"></div>
-                <div class="workflow-step"><i class="bi bi-bookmark"></i> Create Watchlist</div>
-                <div class="workflow-arrow"></div>
-                <div class="workflow-step"><i class="bi bi-plug"></i> Connect Market API</div>
-                <div class="workflow-arrow"></div>
-                <div class="workflow-step"><i class="bi bi-download"></i> Collect Live Data</div>
-                <div class="workflow-arrow"></div>
-                <div class="workflow-step"><i class="bi bi-newspaper"></i> Analyze News</div>
-                <div class="workflow-arrow"></div>
-                <div class="workflow-step"><i class="bi bi-graph-up"></i> Calculate Indicators</div>
-                <div class="workflow-arrow"></div>
-                <div class="workflow-step"><i class="bi bi-cpu"></i> Run AI Engine</div>
-                <div class="workflow-arrow"></div>
-                <div class="workflow-step" style="border-color: var(--accent-primary); box-shadow: 0 0 20px var(--accent-glow);"><i class="bi bi-bell"></i> Generate Alert</div>
+            <div class="vision-grid">
+                <div class="glass-card vision-card reveal">
+                    <div class="icon-box"><i class="bi bi-bookmark-star"></i></div>
+                    <h3>Personal Watchlist</h3>
+                    <p>Curate the exact stocks you want to track. No noise, just your strategy.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.1s;">
+                    <div class="icon-box"><i class="bi bi-cpu"></i></div>
+                    <h3>AI Analysis</h3>
+                    <p>Algorithms that process technicals and sentiment faster than any human.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.2s;">
+                    <div class="icon-box"><i class="bi bi-activity"></i></div>
+                    <h3>Real-Time Monitoring</h3>
+                    <p>Live data streams feeding directly into your dashboard.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.3s;">
+                    <div class="icon-box"><i class="bi bi-newspaper"></i></div>
+                    <h3>News Intelligence</h3>
+                    <p>FinBERT scans thousands of articles to gauge market sentiment instantly.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.4s;">
+                    <div class="icon-box"><i class="bi bi-clock-history"></i></div>
+                    <h3>Historical Backtesting</h3>
+                    <p>Test your strategies against decades of historical market data.</p>
+                </div>
+                <div class="glass-card vision-card reveal" style="transition-delay: 0.5s;">
+                    <div class="icon-box"><i class="bi bi-heart-pulse"></i></div>
+                    <h3>Portfolio Health</h3>
+                    <p>Real-time risk assessment and allocation analysis.</p>
+                </div>
             </div>
         </div>
     </section>

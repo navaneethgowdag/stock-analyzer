@@ -1,5 +1,15 @@
+// ==========================================
+// STOCK NEWS
+// ==========================================
+
 const NEWS_API = "http://localhost:5000/api/news";
 
+let stockNews = {};
+
+
+// ==========================================
+// Load News
+// ==========================================
 
 async function loadNews() {
 
@@ -7,131 +17,408 @@ async function loadNews() {
 
         const token = localStorage.getItem("token");
 
+        if (!token) {
+
+            console.warn("No authentication token found.");
+
+            return;
+
+        }
+
         const response = await fetch(NEWS_API, {
+
+            method: "GET",
 
             headers: {
 
-                Authorization: `Bearer ${token}`
+                "Authorization": `Bearer ${token}`
 
             }
 
         });
 
+        if (!response.ok) {
+
+            console.error(
+                "News API error:",
+                response.status
+            );
+
+            return;
+
+        }
+
         const news = await response.json();
 
-        renderNews(news);
+        console.log("News:", news);
+
+        groupNewsByStock(news);
+
+        renderStockButtons();
 
     }
 
-    catch(err){
+    catch (error) {
 
-        console.error(err);
+        console.error(
+            "Unable to load news:",
+            error
+        );
 
     }
 
 }
 
-function renderNews(news){
 
-    const container = document.getElementById("news-container");
+// ==========================================
+// Group News By Stock
+// ==========================================
+
+function groupNewsByStock(news) {
+
+    stockNews = {};
+
+    news.forEach(article => {
+
+        const ticker = article.ticker;
+
+        if (!ticker) {
+            return;
+        }
+
+        if (!stockNews[ticker]) {
+
+            stockNews[ticker] = [];
+
+        }
+
+        stockNews[ticker].push(article);
+
+    });
+
+}
+
+
+// ==========================================
+// Render Stock Buttons
+// ==========================================
+
+function renderStockButtons() {
+
+    const container =
+        document.getElementById("news-stock-list");
+
+    if (!container) {
+        return;
+    }
 
     container.innerHTML = "";
 
-    if(news.length===0){
+    const stocks = Object.keys(stockNews);
+
+    if (stocks.length === 0) {
 
         container.innerHTML = `
-            <p class="widget-message">
-                No news available.
-            </p>
+            <div class="news-empty">
+                No stock news available.
+            </div>
         `;
 
         return;
 
     }
 
-    // Group by ticker
+    stocks.forEach(ticker => {
 
-    const grouped = {};
+        const count = stockNews[ticker].length;
 
-    news.forEach(item=>{
+        const button =
+            document.createElement("button");
 
-        if(!grouped[item.ticker]){
+        button.type = "button";
 
-            grouped[item.ticker]=[];
+        button.className = "news-stock-button";
 
-        }
+        button.innerHTML = `
 
-        grouped[item.ticker].push(item);
+            <div class="news-stock-left">
 
-    });
+                <div class="news-stock-icon">
 
-    Object.keys(grouped).forEach(ticker=>{
+                    <i class="bi bi-newspaper"></i>
 
-        let html=`
+                </div>
 
-        <div class="stock-news-group">
+                <div>
 
-            <div class="stock-news-header">
+                    <div class="news-stock-name">
+                        ${escapeHTML(ticker)}
+                    </div>
 
-                📈 ${ticker}
+                    <div class="news-stock-count">
+                        ${count}
+                        ${count === 1 ? "headline" : "headlines"}
+                    </div>
+
+                </div>
 
             </div>
+
+            <i class="bi bi-chevron-right news-arrow"></i>
 
         `;
 
-        grouped[ticker].forEach(article=>{
+        button.addEventListener(
+            "click",
+            () => openNewsModal(ticker)
+        );
 
-            const badge =
-                article.label==="positive"
-                ? "positive"
-                : article.label==="negative"
-                ? "negative"
-                : "neutral";
-
-            html+=`
-
-            <div class="news-item">
-
-                <div class="news-top">
-
-                    <span class="badge ${badge}">
-                        ${article.label}
-                    </span>
-
-                    <span class="confidence">
-
-                        ${(article.confidence*100).toFixed(1)}%
-
-                    </span>
-
-                </div>
-
-                <div class="headline">
-
-                    ${article.headline}
-
-                </div>
-
-                <div class="news-time">
-
-                    ${new Date(article.created_at).toLocaleString()}
-
-                </div>
-
-            </div>
-
-            `;
-
-        });
-
-        html+=`</div>`;
-
-        container.innerHTML+=html;
+        container.appendChild(button);
 
     });
 
 }
 
-window.loadNews = loadNews;
 
-document.addEventListener("DOMContentLoaded",loadNews);
+// ==========================================
+// Open News Modal
+// ==========================================
+
+function openNewsModal(ticker) {
+
+    const modal =
+        document.getElementById("news-modal");
+
+    const tickerElement =
+        document.getElementById("modal-ticker");
+
+    const newsList =
+        document.getElementById("modal-news-list");
+
+    if (!modal || !tickerElement || !newsList) {
+        return;
+    }
+
+    tickerElement.textContent = ticker;
+
+    newsList.innerHTML = "";
+
+    const articles = stockNews[ticker] || [];
+
+    if (articles.length === 0) {
+
+        newsList.innerHTML = `
+            <div class="news-empty">
+                No news available for ${escapeHTML(ticker)}.
+            </div>
+        `;
+
+    }
+    else {
+
+        articles.forEach(article => {
+
+            const sentiment =
+                getSentimentClass(article.label);
+
+            const confidence =
+                Number(article.confidence);
+
+            const confidenceText =
+                Number.isFinite(confidence)
+                    ? `${(confidence * 100).toFixed(1)}%`
+                    : "N/A";
+
+            const date =
+                article.created_at
+                    ? new Date(article.created_at)
+                        .toLocaleString()
+                    : "";
+
+            newsList.innerHTML += `
+
+                <div class="news-article">
+
+                    <div class="news-article-headline">
+
+                        ${escapeHTML(
+                            article.headline || "No headline"
+                        )}
+
+                    </div>
+
+                    <div class="news-article-meta">
+
+                        <span class="
+                            news-sentiment
+                            ${sentiment}
+                        ">
+
+                            ${escapeHTML(
+                                article.label || "Neutral"
+                            )}
+
+                        </span>
+
+                        <span>
+                            Confidence: ${confidenceText}
+                        </span>
+
+                        <span>
+                            ${escapeHTML(date)}
+                        </span>
+
+                    </div>
+
+                </div>
+
+            `;
+
+        });
+
+    }
+
+    modal.classList.add("active");
+
+    document.body.style.overflow = "hidden";
+
+}
+
+
+// ==========================================
+// Close Modal
+// ==========================================
+
+function closeNewsModal() {
+
+    const modal =
+        document.getElementById("news-modal");
+
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove("active");
+
+    document.body.style.overflow = "";
+
+}
+
+
+// ==========================================
+// Sentiment Class
+// ==========================================
+
+function getSentimentClass(label) {
+
+    if (!label) {
+        return "neutral";
+    }
+
+    const value =
+        label.toLowerCase();
+
+    if (
+        value.includes("positive") ||
+        value.includes("bullish")
+    ) {
+
+        return "positive";
+
+    }
+
+    if (
+        value.includes("negative") ||
+        value.includes("bearish")
+    ) {
+
+        return "negative";
+
+    }
+
+    return "neutral";
+
+}
+
+
+// ==========================================
+// Escape HTML
+// ==========================================
+
+function escapeHTML(value) {
+
+    const div =
+        document.createElement("div");
+
+    div.textContent =
+        String(value ?? "");
+
+    return div.innerHTML;
+
+}
+
+
+// ==========================================
+// Events
+// ==========================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        loadNews();
+
+        const closeButton =
+            document.getElementById("news-close");
+
+        if (closeButton) {
+
+            closeButton.addEventListener(
+                "click",
+                closeNewsModal
+            );
+
+        }
+
+        const modal =
+            document.getElementById("news-modal");
+
+        if (modal) {
+
+            modal.addEventListener(
+                "click",
+                event => {
+
+                    if (event.target === modal) {
+
+                        closeNewsModal();
+
+                    }
+
+                }
+            );
+
+        }
+
+        document.addEventListener(
+            "keydown",
+            event => {
+
+                if (event.key === "Escape") {
+
+                    closeNewsModal();
+
+                }
+
+            }
+        );
+
+    }
+);
+
+
+// ==========================================
+// Make Available To Watchlist
+// ==========================================
+
+window.loadNews = loadNews;
