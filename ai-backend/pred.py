@@ -585,21 +585,141 @@ def upsert_prediction(conn, row: dict):
     conn.commit()
 
 
-def process_ticker(symbol: str, exchange: str) -> dict | None:
+def ensure_stock_history_table(conn):
+    """
+    Create the stock_history table used to cache daily OHLCV bars per
+    ticker in Postgres, so a server restart/redeploy doesn't lose the
+    cache and every scheduler run doesn't need a full re-download.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS stock_history (
+                ticker  TEXT NOT NULL,
+                date    DATE NOT NULL,
+                open    NUMERIC,
+                high    NUMERIC,
+                low     NUMERIC,
+                close   NUMERIC,
+                volume  BIGINT,
+                PRIMARY KEY (ticker, date)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_stock_history_ticker_date
+            ON stock_history(ticker, date DESC);
+        """)
+    conn.commit()
+
+
+def load_cached_history(conn, ticker: str):
+    """
+    Load cached OHLCV bars for a ticker from stock_history.
+    Returns a DataFrame with Date, Open, High, Low, Close, Volume
+    (same shape as the yfinance fetch), or None if nothing is cached yet.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT date, open, high, low, close, volume
+            FROM stock_history
+            WHERE ticker = %s
+            ORDER BY date;
+        """, (ticker,))
+        rows = cur.fetchall()
+
+    if not rows:
+        return None
+
+    df = pd.DataFrame(rows, columns=["Date", "Open", "High", "Low", "Close", "Volume"])
+    df["Date"] = pd.to_datetime(df["Date"])
+    for col in ["Open", "High", "Low", "Close", "Volume"]:
+        df[col] = df[col].astype(float)
+    return df
+
+
+def save_stock_history(conn, ticker: str, df: pd.DataFrame):
+    """
+    Upsert freshly fetched OHLCV bars into stock_history so the next
+    scheduler run (even after a server restart) can fetch only the
+    incremental data from yfinance instead of the full lookback window.
+    """
+    if df.empty:
+        return
+
+    records = [
+        (
+            ticker,
+            row["Date"].date(),
+            float(row["Open"]),
+            float(row["High"]),
+            float(row["Low"]),
+            float(row["Close"]),
+            int(row["Volume"]),
+        )
+        for _, row in df.iterrows()
+    ]
+
+    with conn.cursor() as cur:
+        psycopg2.extras.execute_values(
+            cur,
+            """
+            INSERT INTO stock_history (ticker, date, open, high, low, close, volume)
+            VALUES %s
+            ON CONFLICT (ticker, date) DO UPDATE SET
+                open = EXCLUDED.open,
+                high = EXCLUDED.high,
+                low = EXCLUDED.low,
+                close = EXCLUDED.close,
+                volume = EXCLUDED.volume;
+            """,
+            records,
+        )
+    conn.commit()
+
+
+def _normalize_ohlcv(raw: pd.DataFrame) -> pd.DataFrame:
+    """Reshape a raw yf.download() result into the Date/OHLCV column layout used everywhere else."""
+    if raw.empty:
+        return raw
+    df = raw.reset_index()
+    df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+    df = df.rename(columns={"index": "Date"})[["Date", "Open", "High", "Low", "Close", "Volume"]]
+    df["Date"] = pd.to_datetime(df["Date"]).dt.tz_localize(None)
+    return df
+
+
+def process_ticker(symbol: str, exchange: str, conn) -> dict | None:
     yt = yahoo_ticker(symbol, exchange)
     if yt not in portfolio_models:
         log.warning(f"No trained model for {yt}, skipping")
         return None
 
-    hist = yf.download(yt, period=LOOKBACK_PERIOD, interval="1d", progress=False, auto_adjust=False)
-    if hist.empty or len(hist) < 60:
+    cached = load_cached_history(conn, yt)
+
+    if cached is None or cached.empty:
+        # cold start for this ticker: no cache yet, do the full lookback download
+        fetched = _normalize_ohlcv(
+            yf.download(yt, period=LOOKBACK_PERIOD, interval="1d", progress=False, auto_adjust=False)
+        )
+    else:
+        # warm start: only fetch from the last cached date onward (live, incremental)
+        start_date = cached["Date"].max().strftime("%Y-%m-%d")
+        fetched = _normalize_ohlcv(
+            yf.download(yt, start=start_date, interval="1d", progress=False, auto_adjust=False)
+        )
+
+    if fetched.empty and (cached is None or cached.empty):
         log.warning(f"Insufficient OHLCV data for {yt}")
         return None
 
-    hist = hist.reset_index()
-    hist.columns = [c[0] if isinstance(c, tuple) else c for c in hist.columns]
-    hist = hist.rename(columns={"index": "Date"})[["Date", "Open", "High", "Low", "Close", "Volume"]]
-    hist["Date"] = pd.to_datetime(hist["Date"]).dt.tz_localize(None)
+    if not fetched.empty:
+        save_stock_history(conn, yt, fetched)
+
+    hist = fetched if cached is None or cached.empty else pd.concat([cached, fetched], ignore_index=True)
+    hist = hist.drop_duplicates(subset="Date", keep="last").sort_values("Date")
+    hist = hist[hist["Date"] >= (hist["Date"].max() - pd.Timedelta(days=730))].reset_index(drop=True)
+
+    if hist.empty or len(hist) < 60:
+        log.warning(f"Insufficient OHLCV data for {yt}")
+        return None
 
     eng = create_stationary_features(hist)
     try:
@@ -637,6 +757,13 @@ def process_ticker(symbol: str, exchange: str) -> dict | None:
             raise ValueError
     except Exception:
         price = last_close
+
+    try:
+        live_previous_close = float(ticker_obj.fast_info.previous_close)
+        if not np.isnan(live_previous_close) and live_previous_close > 0:
+            previous_close = live_previous_close
+    except Exception:
+        pass
 
     return {
         "ticker": yt,
@@ -695,6 +822,7 @@ def run_job():
         ensure_news_sentiment_table(conn)
         ensure_price_history_table(conn)
         ensure_alerts_table(conn)
+        ensure_stock_history_table(conn)
 
         watchlist = get_user_watchlist(conn)
 
@@ -705,7 +833,7 @@ def run_job():
 
             try:
 
-                result = process_ticker(symbol, exchange)
+                result = process_ticker(symbol, exchange, conn)
 
                 if result:
 

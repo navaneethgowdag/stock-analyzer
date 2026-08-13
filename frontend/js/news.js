@@ -50,8 +50,6 @@ async function loadNews() {
 
         const news = await response.json();
 
-        console.log("News:", news);
-
         groupNewsByStock(news);
 
         renderStockButtons();

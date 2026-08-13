@@ -90,7 +90,6 @@
                 <h1 class="reveal">Your AI Never Sleeps. <br> <span>Your Portfolio Never Stops.</span></h1>
                 <p class="reveal" style="transition-delay: 0.1s;">Monitor only the stocks you care about. Receive intelligent alerts powered by AI, technical analysis, and financial news.</p>
                 <div class="hero-buttons reveal" style="transition-delay: 0.2s;">
-                    <a href="register.html" class="btn btn-primary">Start Monitoring</a>
                     <a href="#dashboard-preview" class="btn btn-outline">Explore Product</a>
                 </div>
 
@@ -159,7 +158,7 @@
                     <div id="portfolio-overview">
 
                         <p class="widget-message">
-                            Loading portfolio overview...
+                            LOGIN PLEASE.....!!
                         </p>
 
                     </div>
@@ -317,12 +316,11 @@
 
                     <div id="news-stock-list" class="news-stock-list">
                         <div class="news-loading">
-                            Loading news...
+                            LOGIN PLEASE....!!
                         </div>
                     </div>
 
                 </div>
-
 
                 <!-- News Popup -->
                 <div id="news-modal" class="news-modal">
@@ -423,6 +421,212 @@
         </div>
     </section>
 
+    <!-- ==========================================
+     Feedback & Suggestions
+========================================== -->
+
+<section class="feedback-section">
+
+    <div class="glass-card feedback-card">
+
+        <div class="feedback-header">
+
+            <div>
+
+                <span class="feedback-label">
+                    USER VOICE
+                </span>
+
+                <h2>
+                    Suggestions & Feedback
+                </h2>
+
+                <p>
+                    Help us improve your stock analysis experience.
+                </p>
+
+            </div>
+
+            <div class="feedback-icon">
+                💬
+            </div>
+
+        </div>
+
+
+        <div class="feedback-actions">
+
+            <button
+                class="feedback-action-btn"
+                id="open-feedback-btn">
+
+                <span>💬</span>
+
+                Give Feedback
+
+            </button>
+
+
+            <button
+                class="feedback-action-btn"
+                id="open-suggestion-btn">
+
+                <span>💡</span>
+
+                Suggest an Idea
+
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ==========================================
+     Feedback Modal
+========================================== -->
+
+<div
+    class="feedback-modal"
+    id="feedback-modal">
+
+    <div class="feedback-modal-content">
+
+        <button
+            class="feedback-close"
+            id="close-feedback-btn">
+
+            &times;
+
+        </button>
+
+
+        <div class="feedback-modal-header">
+
+            <span id="feedback-modal-icon">
+                💬
+            </span>
+
+            <div>
+
+                <h2 id="feedback-modal-title">
+                    Give Feedback
+                </h2>
+
+                <p>
+                    Tell us what you think.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <form id="feedback-form">
+
+            <input
+                type="hidden"
+                id="feedback-type"
+                value="feedback"
+            >
+
+
+            <div class="feedback-form-group">
+
+                <label for="feedback-subject">
+                    Subject
+                </label>
+
+                <input
+                    type="text"
+                    id="feedback-subject"
+                    placeholder="What is this about?"
+                    maxlength="150"
+                >
+
+            </div>
+
+
+            <div class="feedback-form-group">
+
+                <label for="feedback-rating">
+                    Rating
+                </label>
+
+                <select id="feedback-rating">
+
+                    <option value="">
+                        Select rating
+                    </option>
+
+                    <option value="5">
+                        ⭐⭐⭐⭐⭐ Excellent
+                    </option>
+
+                    <option value="4">
+                        ⭐⭐⭐⭐ Good
+                    </option>
+
+                    <option value="3">
+                        ⭐⭐⭐ Average
+                    </option>
+
+                    <option value="2">
+                        ⭐⭐ Poor
+                    </option>
+
+                    <option value="1">
+                        ⭐ Very Poor
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="feedback-form-group">
+
+                <label for="feedback-message">
+                    Message
+                </label>
+
+                <textarea
+                    id="feedback-message"
+                    placeholder="Tell us your feedback or suggestion..."
+                    maxlength="2000"
+                    rows="6"
+                    required
+                ></textarea>
+
+                <div class="feedback-character-count">
+                    <span id="feedback-count">0</span>/2000
+                </div>
+
+            </div>
+
+
+            <div
+                class="feedback-status"
+                id="feedback-status">
+            </div>
+
+
+            <button
+                type="submit"
+                class="feedback-submit-btn">
+
+                Submit
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
@@ -433,9 +637,9 @@
                 </div>
                 <div class="footer-links">
                     <h4>Quick Links</h4>
+                    <a href="#dashboard-preview">Monitor</a>
                     <a href="#features">Features</a>
-                    <a href="#technology">Technology</a>
-                    <a href="#roadmap">Roadmap</a>
+
                 </div>
                 <div class="footer-links">
                     <h4>Connect</h4>
@@ -463,5 +667,7 @@
     <script src="js/news.js"></script>
     <script src="js/alert.js"></script>
     <script src="js/market.js"></script>
+    <script src="js/autoRefresh.js"></script>
+    <script src="js/feedback.js"></script>
 </body>
 </html>

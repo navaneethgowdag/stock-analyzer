@@ -49,5 +49,19 @@ app.use(
     marketRoutes
 );
 
+const {
+    apiLimiter
+} = require("./middleware/rateLimiter");
+
+app.use("/api", apiLimiter);
+
+
+const feedbackRoutes =
+    require("./routes/feedbackRoutes");
+
+app.use(
+    "/api/feedback",
+    feedbackRoutes
+);
 
 module.exports = app;
