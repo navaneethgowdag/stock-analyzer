@@ -7,3 +7,4 @@ psycopg2-binary
 APScheduler
 python-dotenv
 xgboost
+sklearn
