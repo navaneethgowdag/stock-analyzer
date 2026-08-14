@@ -877,7 +877,8 @@ def run_job():
                     # 5. Sudden price movement alerts
                     generate_price_alert(
                         conn,
-                        result
+                        result,
+                        current_price
                     )
 
             except Exception as e:
