@@ -1,0 +1,38 @@
+name: Stock Prediction Job
+
+on:
+  schedule:
+    # Every 30 minutes
+    - cron: "*/30 * * * *"
+
+  # Allows you to manually run it from GitHub
+  workflow_dispatch:
+
+jobs:
+  run-prediction:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ai-backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run prediction job
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -u pred.py
