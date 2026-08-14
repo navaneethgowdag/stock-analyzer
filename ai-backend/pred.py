@@ -728,6 +728,25 @@ def get_user_watchlist(conn):
     ]
 
 
+def get_full_watchlist(conn):
+    """
+    Full universe to predict on: every Nifty-50 stock, plus anything a user
+    has added to the 'watchlist' table that isn't already covered by it.
+    De-duplicated on (symbol, exchange) so nothing is ever processed twice.
+    """
+    combined = {}
+
+    for entry in get_nifty50_watchlist():
+        key = (entry["symbol"].strip().upper(), (entry["exchange"] or "NSE").strip().upper())
+        combined[key] = entry
+
+    for entry in get_user_watchlist(conn):
+        key = (entry["symbol"].strip().upper(), (entry["exchange"] or "NSE").strip().upper())
+        combined.setdefault(key, entry)
+
+    return list(combined.values())
+
+
 def run_job():
     log.info("Job started")
 
@@ -740,31 +759,54 @@ def run_job():
         ensure_alerts_table(conn)
         ensure_stock_history_table(conn)
 
-        watchlist = get_user_watchlist(conn)
+        watchlist = get_full_watchlist(conn)
+        log.info(f"Stocks to process: {len(watchlist)} (Nifty-50 + user watchlist, deduped)")
+
+        if not watchlist:
+            log.warning(
+                "Stock universe is EMPTY - there is nothing to process, so no table will be "
+                "updated this run. Check NIFTY_50_SYMBOLS and the 'watchlist' table."
+            )
+
+        processed, skipped, failed = 0, 0, 0
 
         for entry in watchlist:
             symbol = entry["symbol"]
             exchange = entry["exchange"]
+            log.info(f"Processing {symbol}.{exchange} ...")
 
             try:
                 result = process_ticker(symbol, exchange, conn)
 
-                if result:
-                    # 1. Prediction
-                    upsert_prediction(conn, result)
+                if not result:
+                    skipped += 1
+                    continue
 
-                    # 2. FinBERT news sentiment
-                    insert_news_sentiment(conn, result["ticker"], result["news_results"])
+                # 1. Prediction
+                upsert_prediction(conn, result)
 
-                    # 3. Important news alerts
-                    generate_news_alerts(conn, result)
+                # 2. FinBERT news sentiment
+                insert_news_sentiment(conn, result["ticker"], result["news_results"])
 
-                    # 4. Price history + sudden price movement alert
-                    insert_price_history(conn, result["ticker"], result["current_price"])
-                    generate_price_alert(conn, result["ticker"], result["current_price"])
+                # 3. Important news alerts
+                generate_news_alerts(conn, result)
+
+                # 4. Price history + sudden price movement alert
+                insert_price_history(conn, result["ticker"], result["current_price"])
+                generate_price_alert(conn, result["ticker"], result["current_price"])
+
+                processed += 1
+                log.info(
+                    f"{result['ticker']}: {result['recommendation']} "
+                    f"(combined={result['combined_score']}, price={result['current_price']})"
+                )
 
             except Exception as e:
+                failed += 1
                 log.exception(f"Failed processing {symbol}: {e}")
+                conn.rollback()  # clear the failed transaction so the NEXT ticker can still write
+
+        log.info(f"Summary: processed={processed} skipped={skipped} failed={failed}")
 
     finally:
         conn.close()
