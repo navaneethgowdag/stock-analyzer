@@ -3370,6 +3370,7 @@ body[data-theme="dark"] .feedback-modal-content::-webkit-scrollbar-thumb {
     }
 
     .feedback-action-btn {
+        border: 1px solid var(--border-color);
         width: 100%;
     }
 
