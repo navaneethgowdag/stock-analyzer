@@ -2,7 +2,7 @@
 // STOCK NEWS
 // ==========================================
 
-const NEWS_API = "http://localhost:5000/api/news";
+const NEWS_API = "https://stock-analyzer-backend-server.onrender.com/api/news";
 
 let stockNews = {};
 

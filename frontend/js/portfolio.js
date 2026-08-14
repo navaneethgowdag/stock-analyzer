@@ -1,4 +1,4 @@
-const PORT_API_URL = "http://localhost:5000/api/portfolio/overview";
+const PORT_API_URL = "https://stock-analyzer-backend-server.onrender.com/api/portfolio/overview";
 
 
 // ==========================================

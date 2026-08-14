@@ -2,7 +2,7 @@
 // Watchlist API
 // ==========================================
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://stock-analyzer-backend-server.onrender.com/";
 
 // ==========================================
 // Add Stock
