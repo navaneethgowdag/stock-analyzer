@@ -7,6 +7,7 @@ import ta
 import joblib
 import psycopg2
 import psycopg2.extras
+from apscheduler.schedulers.blocking import BlockingScheduler
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime
@@ -894,3 +895,7 @@ def run_job():
 
 if __name__ == "__main__":
     run_job()  # run once immediately on startup
+    scheduler = BlockingScheduler()
+    scheduler.add_job(run_job, "interval", minutes=30, id="stock_prediction_job")
+    log.info("Scheduler started - running every 30 minutes")
+    scheduler.start()
