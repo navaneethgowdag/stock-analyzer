@@ -6,5 +6,8 @@ joblib
 psycopg2-binary
 APScheduler
 python-dotenv
+scikit-learn
 xgboost
-sklearn
+transformers
+torch
+requests
