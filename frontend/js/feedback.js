@@ -1,5 +1,5 @@
 const FEEDBACK_API_URL =
-    "https://stock-analyzer-backend-server.onrender.com/";
+    "https://stock-analyzer-backend-server.onrender.com/api/feedback";
 
 
 // ==========================================

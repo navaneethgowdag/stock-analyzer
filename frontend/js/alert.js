@@ -2,7 +2,7 @@
 // Alert API
 // ==========================================
 
-const ALERT_API_URL = "https://stock-analyzer-backend-server.onrender.com/";
+const ALERT_API_URL = "https://stock-analyzer-backend-server.onrender.com";
 
 let allAlerts = [];
 
