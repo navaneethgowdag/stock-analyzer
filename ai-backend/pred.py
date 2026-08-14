@@ -809,7 +809,6 @@ def get_user_watchlist(conn):
         }
         for row in rows
     ]
-
 def run_job():
 
     log.info("Job started")
@@ -817,13 +816,20 @@ def run_job():
     conn = psycopg2.connect(DATABASE_URL)
 
     try:
+
+        # Create / update required tables
         ensure_predictions_table(conn)
         ensure_news_sentiment_table(conn)
         ensure_price_history_table(conn)
         ensure_alerts_table(conn)
         ensure_stock_history_table(conn)
 
+        # Get stocks from user's watchlist
         watchlist = get_user_watchlist(conn)
+
+        log.info(
+            f"Processing {len(watchlist)} stocks from watchlist"
+        )
 
         for entry in watchlist:
 
@@ -832,54 +838,103 @@ def run_job():
 
             try:
 
-                result = process_ticker(symbol, exchange, conn)
+                log.info(
+                    f"Processing {symbol} ({exchange})"
+                )
 
-                if result:
+                # --------------------------------------------------
+                # 1. Process stock
+                # --------------------------------------------------
 
-                    # 1. Prediction
-                    upsert_prediction(
-                        conn,
-                        result
-                    )
+                result = process_ticker(
+                    symbol,
+                    exchange,
+                    conn
+                )
 
-                    # 2. FinBERT news sentiment
-                    insert_news_sentiment(
-                        conn,
-                        result["ticker"],
-                        result["news_results"]
+                if not result:
+                    log.warning(
+                        f"No result returned for {symbol}"
                     )
-                    
-                    # Generate important news alerts
-                    generate_news_alerts(
-                        conn,
-                        result
-                    )
+                    continue
 
-                    insert_price_history(
-                        conn,
-                        result["ticker"],
-                        result["current_price"]
-                    )
+                ticker = result["ticker"]
+                current_price = result["current_price"]
 
-                    # Detect sudden price movement
-                    generate_price_alert(
-                        conn,
-                        result["ticker"],
-                        result["current_price"]
-                    )
-                    
-                    # 4. Important news alerts
-                    generate_news_alerts(
-                        conn,
-                        result
-                    )
+                log.info(
+                    f"{ticker}: "
+                    f"price={current_price}, "
+                    f"previous_close={result.get('previous_close')}, "
+                    f"recommendation={result['recommendation']}"
+                )
 
-                    # 5. Sudden price movement alerts
-                    generate_price_alert(
-                        conn,
-                        result,
-                        current_price
-                    )
+                # --------------------------------------------------
+                # 2. Update prediction
+                # --------------------------------------------------
+
+                upsert_prediction(
+                    conn,
+                    result
+                )
+
+                log.info(
+                    f"{ticker}: prediction updated"
+                )
+
+                # --------------------------------------------------
+                # 3. Store FinBERT news sentiment
+                # --------------------------------------------------
+
+                insert_news_sentiment(
+                    conn,
+                    ticker,
+                    result["news_results"]
+                )
+
+                log.info(
+                    f"{ticker}: news sentiment updated"
+                )
+
+                # --------------------------------------------------
+                # 4. Generate important news alerts
+                # --------------------------------------------------
+
+                generate_news_alerts(
+                    conn,
+                    result
+                )
+
+                log.info(
+                    f"{ticker}: news alerts checked"
+                )
+
+                # --------------------------------------------------
+                # 5. Store current price
+                # --------------------------------------------------
+
+                insert_price_history(
+                    conn,
+                    ticker,
+                    current_price
+                )
+
+                log.info(
+                    f"{ticker}: price history updated"
+                )
+
+                # --------------------------------------------------
+                # 6. Generate price movement alert
+                # --------------------------------------------------
+
+                generate_price_alert(
+                    conn,
+                    ticker,
+                    current_price
+                )
+
+                log.info(
+                    f"{ticker}: price alert checked"
+                )
 
             except Exception as e:
 
@@ -887,11 +942,28 @@ def run_job():
                     f"Failed processing {symbol}: {e}"
                 )
 
+        log.info(
+            "All watchlist stocks processed"
+        )
+
+    except Exception as e:
+
+        log.exception(
+            f"Job failed: {e}"
+        )
+
     finally:
 
         conn.close()
 
-    log.info("Job finished")
+        log.info(
+            "Database connection closed"
+        )
+
+    log.info(
+        "Job finished"
+    )
+
 
 if __name__ == "__main__":
-    run_job()  # run once immediately on startup
+    run_job()
