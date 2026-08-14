@@ -1,0 +1,8 @@
+numpy
+pandas
+yfinance
+ta
+joblib
+psycopg2-binary
+APScheduler
+python-dotenv
