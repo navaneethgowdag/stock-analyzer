@@ -151,3 +151,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 });
+
+function showTerms(event) {
+    event.preventDefault();
+
+    document.getElementById("terms-modal")
+        .classList.add("active");
+
+    document.body.style.overflow = "hidden";
+}
+
+function closeTerms() {
+    document.getElementById("terms-modal")
+        .classList.remove("active");
+
+    document.body.style.overflow = "";
+}
+
+function showPrivacy(event) {
+    event.preventDefault();
+
+    document.getElementById("privacy-modal")
+        .classList.add("active");
+
+    document.body.style.overflow = "hidden";
+}
+
+function closePrivacy() {
+    document.getElementById("privacy-modal")
+        .classList.remove("active");
+
+    document.body.style.overflow = "";
+}
