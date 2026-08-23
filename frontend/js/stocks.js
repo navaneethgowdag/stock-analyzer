@@ -49,7 +49,8 @@ const nifty50 = [
     { symbol: "TRENT.NS", company: "Trent Ltd." },
     { symbol: "ULTRACEMCO.NS", company: "UltraTech Cement Ltd." },
     { symbol: "WIPRO.NS", company: "Wipro Ltd." },
-    { symbol: "GLE.PA", company: "Society Generale"}
+    { symbol: "GLE.PA", company: "Society Generale"} 
+    
 ];
 
 const stockSelect = document.getElementById("stock-symbol");
