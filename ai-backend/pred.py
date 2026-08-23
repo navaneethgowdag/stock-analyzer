@@ -57,7 +57,7 @@ NIFTY_50_SYMBOLS = [
     "LT", "M&M", "MARUTI", "NTPC", "NESTLEIND",
     "ONGC", "POWERGRID", "RELIANCE", "SBILIFE", "SHRIRAMFIN",
     "SBIN", "SUNPHARMA", "TCS", "TATACONSUM", "TATAMOTORS",
-    "TATASTEEL", "TECHM", "TITAN", "TRENT", "ULTRACEMCO", "WIPRO",
+    "TATASTEEL", "TECHM", "TITAN", "TRENT", "ULTRACEMCO", "WIPRO","GLE.PA"
 ]
 
 # ---------------------------------------------------------------- artifacts
