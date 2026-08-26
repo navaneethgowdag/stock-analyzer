@@ -2374,3 +2374,200 @@ body.modal-open {
     overflow: hidden;
     scrollbar-gutter: stable;
 }
+
+/* ==========================================
+   Market Stock Layout
+========================================== */
+
+.market-stock-item {
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        auto
+        auto;
+
+    align-items: center;
+
+    gap: 20px;
+}
+
+
+/* ==========================================
+   Market Middle Section
+========================================== */
+
+.market-stock-middle {
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-end;
+
+    gap: 3px;
+
+    min-width: 150px;
+}
+
+
+.market-previous-close {
+    font-size: 11px;
+
+    color: var(--text-secondary);
+
+    opacity: 0.75;
+
+    margin-top: 3px;
+}
+
+
+/* ==========================================
+   Suggestion
+========================================== */
+
+.market-stock-suggestion {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    min-width: 70px;
+}
+
+
+.market-suggestion {
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    min-width: 65px;
+
+    padding: 6px 12px;
+
+    border-radius: 8px;
+
+    font-size: 11px;
+
+    font-weight: 800;
+
+    letter-spacing: 0.5px;
+
+    border: 1px solid;
+
+    transition:
+        transform 0.2s ease,
+        opacity 0.2s ease;
+}
+
+
+.market-suggestion:hover {
+    transform: translateY(-1px);
+}
+
+
+/* ==========================================
+   BUY
+========================================== */
+
+.market-suggestion-buy {
+    color: #22c55e;
+
+    background: rgba(34, 197, 94, 0.12);
+
+    border-color: rgba(34, 197, 94, 0.35);
+}
+
+
+/* ==========================================
+   HOLD
+========================================== */
+
+.market-suggestion-hold {
+    color: #f59e0b;
+
+    background: rgba(245, 158, 11, 0.12);
+
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+
+/* ==========================================
+   SELL
+========================================== */
+
+.market-suggestion-sell {
+    color: #ef4444;
+
+    background: rgba(239, 68, 68, 0.12);
+
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+
+/* ==========================================
+   Mobile
+========================================== */
+
+@media (max-width: 700px) {
+
+    .market-stock-item {
+
+        grid-template-columns:
+            1fr
+            auto;
+
+        gap: 10px;
+
+    }
+
+
+    .market-stock-middle {
+
+        align-items: flex-end;
+
+        min-width: auto;
+
+    }
+
+
+    .market-stock-suggestion {
+
+        grid-column: 2;
+
+        grid-row: 1;
+
+    }
+
+}
+
+
+@media (max-width: 480px) {
+
+    .market-stock-item {
+
+        grid-template-columns: 1fr;
+
+    }
+
+
+    .market-stock-middle {
+
+        align-items: flex-start;
+
+    }
+
+
+    .market-stock-suggestion {
+
+        grid-column: auto;
+
+        grid-row: auto;
+
+        justify-content: flex-start;
+
+    }
+
+}

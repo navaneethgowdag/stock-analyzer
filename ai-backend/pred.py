@@ -1,818 +1,3517 @@
 import os
 import logging
+
+from pathlib import Path
+from datetime import datetime
+from urllib.parse import urlparse
+
 import numpy as np
 import pandas as pd
 import yfinance as yf
 import ta
 import joblib
+import socket
+
 import psycopg2
 import psycopg2.extras
+
 from dotenv import load_dotenv
-from pathlib import Path
-from datetime import datetime
-from urllib.parse import urlparse
 
 
-BASE_DIR = Path(__file__).resolve().parent
-_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-load_dotenv(dotenv_path=_env_path)
+# ============================================================
+# CONFIGURATION
+# ============================================================
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger("stock_pipeline")
+BASE_DIR = Path(
+    __file__
+).resolve().parent
 
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL or "localhost" in DATABASE_URL:
-    print(f"[dotenv] DATABASE_URL currently resolves to: {DATABASE_URL!r}")
+ENV_PATH = (
+    BASE_DIR / ".env"
+)
+
+
+load_dotenv(
+    dotenv_path=ENV_PATH
+)
+
+
+# ============================================================
+# LOGGING
+# ============================================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format=(
+        "%(asctime)s "
+        "[%(levelname)s] "
+        "%(message)s"
+    )
+)
+
+log = logging.getLogger(
+    "stock_pipeline"
+)
+
+
+# ============================================================
+# DATABASE
+# ============================================================
+
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL"
+)
+
+
+if not DATABASE_URL:
+
     raise SystemExit(
-        "FATAL: DATABASE_URL is missing or invalid.\n"
-        f"  - Confirm this file exists: {_env_path}\n"
-        "  - Confirm it contains exactly: DATABASE_URL=postgresql://user:pass@host/db?sslmode=require\n"
-        "  - No quotes, no 'export ', no trailing spaces, no BOM (save as plain UTF-8, not 'UTF-8 with BOM')."
+        "FATAL: DATABASE_URL is missing.\n"
+        f"Expected .env file: {ENV_PATH}\n"
+        "Example:\n"
+        "DATABASE_URL=postgresql://user:password@host/db?sslmode=require"
     )
 
-MODELS_DIR = BASE_DIR / "models"
-ENABLE_SENTIMENT = os.environ.get("ENABLE_SENTIMENT", "true").lower() == "true"
-MAX_HEADLINES = int(os.environ.get("MAX_HEADLINES", "10"))
-log.info(f"BASE_DIR: {BASE_DIR}")
-log.info(f"MODELS_DIR: {MODELS_DIR}")
-log.info(f"MODEL EXISTS: {(MODELS_DIR / 'portfolio_models_dict.pkl').exists()}")
 
-EXCHANGE_SUFFIX = {"NSE": ".NS", "BSE": ".BO"}
-BUY_THRESHOLD, SELL_THRESHOLD = 0.70, 0.40
-WEIGHT_MODEL, WEIGHT_SENTIMENT = 0.70, 0.30
-LOOKBACK_PERIOD = "2y"
+if "localhost" in DATABASE_URL.lower():
 
-_parsed_db_url = urlparse(DATABASE_URL)
-log.info(f"DATABASE HOST: {_parsed_db_url.hostname}")
-log.info(f"DATABASE NAME: {_parsed_db_url.path}")
+    log.warning(
+        "DATABASE_URL contains localhost. "
+        "Make sure this is intentional."
+    )
 
-NIFTY_50_SYMBOLS = [
-    "ADANIENT", "ADANIPORTS", "APOLLOHOSP", "ASIANPAINT", "AXISBANK",
-    "BAJAJ-AUTO", "BAJFINANCE", "BAJAJFINSV", "BEL", "BPCL",
-    "BHARTIARTL", "BRITANNIA", "CIPLA", "COALINDIA", "DIVISLAB",
-    "DRREDDY", "EICHERMOT", "GRASIM", "HCLTECH", "HDFCBANK",
-    "HDFCLIFE", "HEROMOTOCO", "HINDALCO", "HINDUNILVR", "ICICIBANK",
-    "ITC", "INDUSINDBK", "INFY", "JSWSTEEL", "KOTAKBANK",
-    "LT", "M&M", "MARUTI", "NTPC", "NESTLEIND",
-    "ONGC", "POWERGRID", "RELIANCE", "SBILIFE", "SHRIRAMFIN",
-    "SBIN", "SUNPHARMA", "TCS", "TATACONSUM", "TATAMOTORS",
-    "TATASTEEL", "TECHM", "TITAN", "TRENT", "ULTRACEMCO", "WIPRO","GLE.PA"
+
+parsed_db_url = urlparse(
+    DATABASE_URL
+)
+
+
+log.info(
+    f"DATABASE HOST: "
+    f"{parsed_db_url.hostname}"
+)
+
+log.info(
+    f"DATABASE NAME: "
+    f"{parsed_db_url.path}"
+)
+
+
+# ============================================================
+# MODEL DIRECTORY
+# ============================================================
+
+MODELS_DIR = (
+    BASE_DIR / "models"
+)
+
+
+MODEL_PATH = (
+    MODELS_DIR /
+    "portfolio_models_dict.pkl"
+)
+
+FEATURE_PATH = (
+    MODELS_DIR /
+    "feature_columns.pkl"
+)
+
+ENCODER_PATH = (
+    MODELS_DIR /
+    "stock_encoder.pkl"
+)
+
+
+# ============================================================
+# MODEL FILE CHECK
+# ============================================================
+
+for path in [
+    MODEL_PATH,
+    FEATURE_PATH,
+    ENCODER_PATH
+]:
+
+    if not path.exists():
+
+        raise SystemExit(
+            f"FATAL: Required model file missing:\n{path}"
+        )
+
+
+# ============================================================
+# LOAD TRAINED ARTIFACTS
+# ============================================================
+
+portfolio_models = joblib.load(
+    MODEL_PATH
+)
+
+feature_columns = joblib.load(
+    FEATURE_PATH
+)
+
+stock_encoder = joblib.load(
+    ENCODER_PATH
+)
+
+
+log.info(
+    f"Loaded "
+    f"{len(portfolio_models)} trained stock models"
+)
+
+log.info(
+    f"Loaded "
+    f"{len(feature_columns)} trained features"
+)
+
+
+# ============================================================
+# EXACT TRAINED FEATURE LIST
+# ============================================================
+
+EXPECTED_FEATURES = [
+
+    "EMA20_DISTANCE",
+    "EMA20_SLOPE",
+    "EMA20_ACCEL",
+
+    "EMA50_DISTANCE",
+    "EMA50_SLOPE",
+    "EMA50_ACCEL",
+
+    "EMA_SPREAD",
+    "EMA_SPREAD_SLOPE",
+    "EMA_ALIGNMENT",
+
+    "RSI14",
+    "RSI_SLOPE",
+    "RSI_ACCEL",
+
+    "ATR14_N",
+    "ATR_SLOPE",
+    "ATR_ACCEL"
+
 ]
 
-# ---------------------------------------------------------------- artifacts
-portfolio_models = joblib.load(os.path.join(MODELS_DIR, "portfolio_models_dict.pkl"))
-feature_columns = joblib.load(os.path.join(MODELS_DIR, "feature_columns.pkl"))
-stock_encoder = joblib.load(os.path.join(MODELS_DIR, "stock_encoder.pkl"))
+
+# ============================================================
+# STRICT FEATURE CHECK
+# ============================================================
+
+if list(feature_columns) != EXPECTED_FEATURES:
+
+    raise RuntimeError(
+        "\nERROR: feature_columns.pkl does not match "
+        "the current deployment feature pipeline.\n\n"
+        f"Loaded:\n{list(feature_columns)}\n\n"
+        f"Expected:\n{EXPECTED_FEATURES}\n\n"
+        "Use the feature_columns.pkl generated by the "
+        "current 4-indicator training code."
+    )
+
+
+log.info(
+    "✅ Feature configuration matches "
+    "EMA20 + EMA50 + RSI14 + ATR14 training."
+)
+
+
+# ============================================================
+# SENTIMENT CONFIG
+# ============================================================
+
+ENABLE_SENTIMENT = (
+    os.environ
+    .get(
+        "ENABLE_SENTIMENT",
+        "true"
+    )
+    .lower()
+    == "true"
+)
+
+
+MAX_HEADLINES = int(
+    os.environ.get(
+        "MAX_HEADLINES",
+        "10"
+    )
+)
+
+
+# ============================================================
+# HYBRID SCORE CONFIG
+# ============================================================
+
+BUY_THRESHOLD = 0.70
+
+SELL_THRESHOLD = 0.40
+
+WEIGHT_MODEL = 0.70
+
+WEIGHT_SENTIMENT = 0.30
+
+
+# ============================================================
+# HISTORY CONFIG
+# ============================================================
+
+LOOKBACK_PERIOD = "2y"
+
+MIN_HISTORY_ROWS = 60
+
+
+# ============================================================
+# EXCHANGE MAPPING
+# ============================================================
+
+EXCHANGE_SUFFIX = {
+
+    "NSE": ".NS",
+
+    "BSE": ".BO"
+
+}
+
+
+# ============================================================
+# NIFTY SYMBOLS
+# ============================================================
+
+NIFTY_50_SYMBOLS = [
+
+    "ADANIENT",
+    "ADANIPORTS",
+    "APOLLOHOSP",
+    "ASIANPAINT",
+    "AXISBANK",
+    "BAJAJ-AUTO",
+    "BAJFINANCE",
+    "BAJAJFINSV",
+    "BEL",
+    "BPCL",
+    "BHARTIARTL",
+    "BRITANNIA",
+    "CIPLA",
+    "COALINDIA",
+    "DIVISLAB",
+    "DRREDDY",
+    "EICHERMOT",
+    "GRASIM",
+    "HCLTECH",
+    "HDFCBANK",
+    "HDFCLIFE",
+    "HEROMOTOCO",
+    "HINDALCO",
+    "HINDUNILVR",
+    "ICICIBANK",
+    "ITC",
+    "INDUSINDBK",
+    "INFY",
+    "JSWSTEEL",
+    "KOTAKBANK",
+    "LT",
+    "M&M",
+    "MARUTI",
+    "NTPC",
+    "NESTLEIND",
+    "ONGC",
+    "POWERGRID",
+    "RELIANCE",
+    "SBILIFE",
+    "SHRIRAMFIN",
+    "SBIN",
+    "SUNPHARMA",
+    "TATACONSUM",
+    "TATAMOTORS",
+    "TATASTEEL",
+    "TECHM",
+    "TITAN",
+    "TRENT",
+    "ULTRACEMCO",
+    "WIPRO"
+
+]
+
+
+# ============================================================
+# FINBERT
+# ============================================================
 
 finbert = None
+
+
 if ENABLE_SENTIMENT:
-    import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    from torch.nn.functional import softmax
 
-    class FinBERTAnalyzer:
-        LABELS = {0: "positive", 1: "negative", 2: "neutral"}
-        SCORES = {"positive": 1.0, "negative": -1.0, "neutral": 0.0}
+    try:
 
-        def __init__(self, model_name="ProsusAI/finbert"):
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.tok = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(model_name).to(self.device).eval()
+        import torch
 
-        def analyze_headline(self, headline):
-            inputs = self.tok(headline, return_tensors="pt", truncation=True, max_length=512, padding=True)
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            with torch.no_grad():
-                logits = self.model(**inputs).logits
-            probs = softmax(logits, dim=-1).cpu().numpy()[0]
-            idx = int(np.argmax(probs))
-            label = self.LABELS[idx]
-            return {"headline": headline, "label": label, "score": self.SCORES[label], "confidence": float(probs[idx])}
+        from transformers import (
+            AutoTokenizer,
+            AutoModelForSequenceClassification
+        )
 
-        def analyze_batch(self, headlines):
-            if not headlines:
-                return {"avg_score": 0.0, "sentiment_label": "Neutral", "results": []}
-            results = [self.analyze_headline(h) for h in headlines]
-            avg = float(np.mean([r["score"] for r in results]))
-            label = "Positive" if avg > 0.1 else "Negative" if avg < -0.1 else "Neutral"
-            return {"avg_score": avg, "sentiment_label": label, "results": results}
-
-    finbert = FinBERTAnalyzer()
+        from torch.nn.functional import (
+            softmax
+        )
 
 
-def create_stationary_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.sort_values("Date").copy()
-    close, open_, high, low, volume = df["Close"], df["Open"], df["High"], df["Low"], df["Volume"]
-    prev_close = close.shift(1)
+        class FinBERTAnalyzer:
 
-    df["Ret_1"] = close.pct_change(1)
-    df["Ret_3"] = close.pct_change(3)
-    df["Ret_5"] = close.pct_change(5)
-    df["Ret_10"] = close.pct_change(10)
-    df["Ret_20"] = close.pct_change(20)
-    df["LogRet_1"] = np.log(close / prev_close)
-    df["Vol_Chg_1"] = volume.pct_change(1)
-    df["Vol_Chg_5"] = volume.pct_change(5)
-    df["Gap_Return"] = open_ / prev_close - 1.0
-    df["Intraday_Return"] = close / open_ - 1.0
-    df["Range_Pct"] = (high - low) / close
-    df["Body_Pct"] = (close - open_) / open_
-    df["Upper_Shadow_Pct"] = (high - np.maximum(open_, close)) / close
-    df["Lower_Shadow_Pct"] = (np.minimum(open_, close) - low) / close
+            LABELS = {
 
-    for i in range(1, 11):
-        df[f"Ret_Lag_{i}"] = df["Ret_1"].shift(i)
-        df[f"Vol_Chg_Lag_{i}"] = df["Vol_Chg_1"].shift(i)
-        df[f"Range_Lag_{i}"] = df["Range_Pct"].shift(i)
+                0: "positive",
 
-    for w in [5, 10, 20, 50]:
-        price_mean, price_std = close.rolling(w).mean(), close.rolling(w).std()
-        vol_mean = volume.rolling(w).mean()
-        ret_mean, ret_std = df["Ret_1"].rolling(w).mean(), df["Ret_1"].rolling(w).std()
-        rolling_high, rolling_low = high.rolling(w).max(), low.rolling(w).min()
+                1: "negative",
 
-        df[f"Mom_{w}"] = close.pct_change(w)
-        df[f"Ret_Mean_{w}"] = ret_mean
-        df[f"Ret_Std_{w}"] = ret_std
-        df[f"Price_Z_{w}"] = (close - price_mean) / price_std
-        df[f"Dist_SMA_{w}"] = close / price_mean - 1.0
-        df[f"Dist_High_{w}"] = close / rolling_high - 1.0
-        df[f"Dist_Low_{w}"] = close / rolling_low - 1.0
-        df[f"Vol_Z_{w}"] = (volume - vol_mean) / volume.rolling(w).std()
-        df[f"Vol_Ratio_{w}"] = volume / vol_mean - 1.0
+                2: "neutral"
 
-    rsi = ta.momentum.RSIIndicator(close=close, window=14).rsi()
-    df["RSI_14_N"] = (rsi - 50.0) / 50.0
-    macd = ta.trend.MACD(close=close, window_slow=26, window_fast=12, window_sign=9)
-    df["MACD_N"] = macd.macd() / close
-    df["MACD_SIGNAL_N"] = macd.macd_signal() / close
-    df["MACD_DIFF_N"] = macd.macd_diff() / close
-    bb = ta.volatility.BollingerBands(close=close, window=20, window_dev=2)
-    df["BB_PBAND"] = bb.bollinger_pband()
-    df["BB_WBAND_N"] = bb.bollinger_wband() / 100.0
-    atr = ta.volatility.AverageTrueRange(high=high, low=low, close=close, window=14)
-    df["ATR_N"] = atr.average_true_range() / close
-    stoch = ta.momentum.StochasticOscillator(high=high, low=low, close=close, window=14, smooth_window=3)
-    df["STOCH_K_N"] = stoch.stoch() / 100.0
-    df["STOCH_D_N"] = stoch.stoch_signal() / 100.0
-    adx = ta.trend.ADXIndicator(high=high, low=low, close=close, window=14)
-    df["ADX_N"] = adx.adx() / 100.0
-    mfi = ta.volume.MFIIndicator(high=high, low=low, close=close, volume=volume, window=14)
-    df["MFI_N"] = mfi.money_flow_index() / 100.0
-    obv = ta.volume.OnBalanceVolumeIndicator(close=close, volume=volume).on_balance_volume()
-    df["OBV_Slope_10"] = obv.diff(10) / (volume.rolling(20).mean() * 10)
+            }
 
-    dow, month = df["Date"].dt.dayofweek, df["Date"].dt.month
-    df["DOW_SIN"] = np.sin(2 * np.pi * dow / 7)
-    df["DOW_COS"] = np.cos(2 * np.pi * dow / 7)
-    df["MONTH_SIN"] = np.sin(2 * np.pi * (month - 1) / 12)
-    df["MONTH_COS"] = np.cos(2 * np.pi * (month - 1) / 12)
+
+            SCORES = {
+
+                "positive": 1.0,
+
+                "negative": -1.0,
+
+                "neutral": 0.0
+
+            }
+
+
+            def __init__(
+                self,
+                model_name="ProsusAI/finbert"
+            ):
+
+                self.device = torch.device(
+
+                    "cuda"
+                    if torch.cuda.is_available()
+                    else "cpu"
+
+                )
+
+                log.info(
+                    f"Loading FinBERT on "
+                    f"{self.device}"
+                )
+
+
+                self.tok = (
+                    AutoTokenizer
+                    .from_pretrained(
+                        model_name
+                    )
+                )
+
+
+                self.model = (
+                    AutoModelForSequenceClassification
+                    .from_pretrained(
+                        model_name
+                    )
+                    .to(self.device)
+                    .eval()
+                )
+
+
+                log.info(
+                    "✅ FinBERT loaded"
+                )
+
+
+            def analyze_headline(
+                self,
+                headline
+            ):
+
+                inputs = self.tok(
+
+                    headline,
+
+                    return_tensors="pt",
+
+                    truncation=True,
+
+                    max_length=512,
+
+                    padding=True
+
+                )
+
+
+                inputs = {
+                    k: v.to(self.device)
+                    for k, v in inputs.items()
+                }
+
+
+                with torch.no_grad():
+
+                    logits = (
+                        self.model(
+                            **inputs
+                        ).logits
+                    )
+
+
+                probs = (
+                    softmax(
+                        logits,
+                        dim=-1
+                    )
+                    .cpu()
+                    .numpy()[0]
+                )
+
+
+                idx = int(
+                    np.argmax(
+                        probs
+                    )
+                )
+
+
+                label = (
+                    self.LABELS[idx]
+                )
+
+
+                return {
+
+                    "headline":
+                        headline,
+
+                    "label":
+                        label,
+
+                    "score":
+                        self.SCORES[label],
+
+                    "confidence":
+                        float(
+                            probs[idx]
+                        )
+
+                }
+
+
+            def analyze_batch(
+                self,
+                headlines
+            ):
+
+                if not headlines:
+
+                    return {
+
+                        "avg_score":
+                            0.0,
+
+                        "sentiment_label":
+                            "Neutral",
+
+                        "results":
+                            []
+
+                    }
+
+
+                results = [
+
+                    self.analyze_headline(
+                        h
+                    )
+
+                    for h in headlines
+
+                ]
+
+
+                avg = float(
+                    np.mean(
+                        [
+                            r["score"]
+                            for r in results
+                        ]
+                    )
+                )
+
+
+                if avg > 0.1:
+
+                    label = "Positive"
+
+                elif avg < -0.1:
+
+                    label = "Negative"
+
+                else:
+
+                    label = "Neutral"
+
+
+                return {
+
+                    "avg_score":
+                        avg,
+
+                    "sentiment_label":
+                        label,
+
+                    "results":
+                        results
+
+                }
+
+
+        finbert = FinBERTAnalyzer()
+
+
+    except Exception as e:
+
+        log.exception(
+            "FinBERT could not be loaded."
+        )
+
+        raise RuntimeError(
+            "ENABLE_SENTIMENT=true but "
+            "FinBERT initialization failed. "
+            "Install torch/transformers and "
+            "make sure the FinBERT model can be loaded."
+        ) from e
+
+
+# ============================================================
+# EXACT MODEL FEATURE ENGINEERING
+# ============================================================
+#
+# IMPORTANT:
+# This replaces the old feature function.
+#
+# No untrained indicators are calculated.
+#
+# ============================================================
+
+def create_stationary_features(
+    df: pd.DataFrame
+) -> pd.DataFrame:
+
+    df = (
+        df
+        .sort_values("Date")
+        .copy()
+    )
+
+
+    close = df["Close"]
+
+    high = df["High"]
+
+    low = df["Low"]
+
+
+    # ========================================================
+    # EMA20
+    # ========================================================
+
+    ema20 = (
+        ta.trend.EMAIndicator(
+
+            close=close,
+
+            window=20
+
+        )
+        .ema_indicator()
+    )
+
+
+    # ========================================================
+    # EMA50
+    # ========================================================
+
+    ema50 = (
+        ta.trend.EMAIndicator(
+
+            close=close,
+
+            window=50
+
+        )
+        .ema_indicator()
+    )
+
+
+    # ========================================================
+    # RSI14
+    # ========================================================
+
+    rsi14 = (
+        ta.momentum.RSIIndicator(
+
+            close=close,
+
+            window=14
+
+        )
+        .rsi()
+    )
+
+
+    # ========================================================
+    # ATR14
+    # ========================================================
+
+    atr14 = (
+        ta.volatility.AverageTrueRange(
+
+            high=high,
+
+            low=low,
+
+            close=close,
+
+            window=14
+
+        )
+        .average_true_range()
+    )
+
+
+    # ========================================================
+    # EMA20 FEATURES
+    # ========================================================
+
+    df["EMA20_DISTANCE"] = (
+
+        close / ema20
+
+    ) - 1.0
+
+
+    df["EMA20_SLOPE"] = (
+
+        ema20 /
+        ema20.shift(5)
+
+    ) - 1.0
+
+
+    df["EMA20_ACCEL"] = (
+
+        df["EMA20_SLOPE"]
+        .diff(5)
+
+    )
+
+
+    # ========================================================
+    # EMA50 FEATURES
+    # ========================================================
+
+    df["EMA50_DISTANCE"] = (
+
+        close / ema50
+
+    ) - 1.0
+
+
+    df["EMA50_SLOPE"] = (
+
+        ema50 /
+        ema50.shift(5)
+
+    ) - 1.0
+
+
+    df["EMA50_ACCEL"] = (
+
+        df["EMA50_SLOPE"]
+        .diff(5)
+
+    )
+
+
+    # ========================================================
+    # EMA RELATIONSHIP
+    # ========================================================
+
+    df["EMA_SPREAD"] = (
+
+        ema20 /
+        ema50
+
+    ) - 1.0
+
+
+    df["EMA_SPREAD_SLOPE"] = (
+
+        df["EMA_SPREAD"]
+        .diff(5)
+
+    )
+
+
+    df["EMA_ALIGNMENT"] = np.where(
+
+        ema20 > ema50,
+
+        1.0,
+
+        -1.0
+
+    )
+
+
+    # ========================================================
+    # RSI FEATURES
+    # ========================================================
+
+    df["RSI14"] = (
+
+        rsi14 - 50.0
+
+    ) / 50.0
+
+
+    df["RSI_SLOPE"] = (
+
+        rsi14.diff(5)
+
+    ) / 100.0
+
+
+    df["RSI_ACCEL"] = (
+
+        rsi14
+        .diff(5)
+        .diff(5)
+
+    ) / 100.0
+
+
+    # ========================================================
+    # ATR FEATURES
+    # ========================================================
+
+    df["ATR14_N"] = (
+
+        atr14 / close
+
+    )
+
+
+    df["ATR_SLOPE"] = (
+
+        df["ATR14_N"]
+        .pct_change(5)
+
+    )
+
+
+    df["ATR_ACCEL"] = (
+
+        df["ATR_SLOPE"]
+        .diff(5)
+
+    )
+
+
+    # ========================================================
+    # CLEAN
+    # ========================================================
+
+    df.replace(
+
+        [
+            np.inf,
+            -np.inf
+        ],
+
+        np.nan,
+
+        inplace=True
+
+    )
+
+
     return df
 
 
-def compute_hybrid_score(prob_up, sentiment_avg):
-    sentiment_norm = (sentiment_avg + 1.0) / 2.0
-    combined = float(np.clip(WEIGHT_MODEL * prob_up + WEIGHT_SENTIMENT * sentiment_norm, 0.0, 1.0))
-    rec = "BUY" if combined >= BUY_THRESHOLD else "SELL" if combined <= SELL_THRESHOLD else "HOLD"
-    return combined, rec
+# ============================================================
+# HYBRID SCORE
+# ============================================================
+
+def compute_hybrid_score(
+    prob_up,
+    sentiment_avg
+):
+
+    sentiment_norm = (
+
+        sentiment_avg + 1.0
+
+    ) / 2.0
 
 
-def yahoo_ticker(symbol: str, exchange: str) -> str:
-    """'TCS.NSE', exchange='NSE' -> 'TCS.NS'"""
-    base = symbol.split(".")[0].upper()
-    suffix = EXCHANGE_SUFFIX.get((exchange or "").upper(), ".NS")
-    return base + suffix
+    combined = float(
+
+        np.clip(
+
+            WEIGHT_MODEL *
+            prob_up
+            +
+
+            WEIGHT_SENTIMENT *
+            sentiment_norm,
+
+            0.0,
+
+            1.0
+
+        )
+
+    )
 
 
-def fetch_news_headlines(ticker_obj, max_headlines=10):
+    if combined >= BUY_THRESHOLD:
+
+        recommendation = "BUY"
+
+    elif combined <= SELL_THRESHOLD:
+
+        recommendation = "SELL"
+
+    else:
+
+        recommendation = "HOLD"
+
+
+    return (
+        combined,
+        recommendation
+    )
+
+
+# ============================================================
+# YAHOO TICKER
+# ============================================================
+
+def yahoo_ticker(
+    symbol: str,
+    exchange: str
+):
+
+    base = (
+        symbol
+        .split(".")[0]
+        .upper()
+    )
+
+
+    suffix = EXCHANGE_SUFFIX.get(
+
+        (
+            exchange or ""
+        ).upper(),
+
+        ".NS"
+
+    )
+
+
+    return (
+        base + suffix
+    )
+
+
+# ============================================================
+# FETCH NEWS
+# ============================================================
+
+def fetch_news_headlines(
+    ticker_obj,
+    max_headlines=10
+):
+
     try:
-        news = ticker_obj.news or []
-        heads = []
-        for item in news[:max_headlines]:
-            content = item.get("content", item)
-            title = content.get("title") or content.get("headline") or content.get("summary") or ""
+
+        news = (
+            ticker_obj.news
+            or []
+        )
+
+
+        headlines = []
+
+
+        for item in news[
+            :max_headlines
+        ]:
+
+            content = (
+                item.get(
+                    "content",
+                    item
+                )
+            )
+
+
+            title = (
+
+                content.get("title")
+
+                or
+
+                content.get("headline")
+
+                or
+
+                content.get("summary")
+
+                or
+
+                ""
+
+            )
+
+
             if title:
-                heads.append(title.strip())
-        return heads
-    except Exception:
+
+                headlines.append(
+                    title.strip()
+                )
+
+
+        return headlines
+
+
+    except Exception as e:
+
+        log.warning(
+            f"Could not fetch news: {e}"
+        )
+
         return []
 
 
+# ============================================================
+# NIFTY WATCHLIST
+# ============================================================
+
 def get_nifty50_watchlist():
-    """Static Nifty-50 list -> [{'symbol': ..., 'exchange': 'NSE'}, ...]"""
-    return [{"symbol": s, "exchange": "NSE"} for s in NIFTY_50_SYMBOLS]
+
+    return [
+
+        {
+            "symbol": symbol,
+
+            "exchange": "NSE"
+
+        }
+
+        for symbol
+        in NIFTY_50_SYMBOLS
+
+    ]
 
 
-def ensure_predictions_table(conn):
-    with conn.cursor() as cur:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS predictions (
-                ticker            TEXT PRIMARY KEY,
-                symbol            TEXT,
-                exchange          TEXT,
-                current_price     NUMERIC,
-                prob_up           NUMERIC,
-                pred_direction    TEXT,
-                sentiment_label   TEXT,
-                sentiment_score   NUMERIC,
-                combined_score    NUMERIC,
-                recommendation    TEXT,
-                updated_at        TIMESTAMPTZ DEFAULT now()
-            );
-        """)
+# ============================================================
+# DATABASE: predictions
+# ============================================================
 
-        cur.execute("""
-            ALTER TABLE predictions
-            ADD COLUMN IF NOT EXISTS previous_close NUMERIC(12, 2);
-        """)
-
-    conn.commit()
-
-
-def ensure_price_history_table(conn):
-    with conn.cursor() as cur:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS price_history (
-                id          BIGSERIAL PRIMARY KEY,
-                ticker      TEXT NOT NULL,
-                price       NUMERIC NOT NULL,
-                recorded_at TIMESTAMPTZ DEFAULT now()
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_price_history_ticker_time
-            ON price_history(ticker, recorded_at DESC);
-        """)
-
-    conn.commit()
-
-
-def ensure_alerts_table(conn):
-    """
-    Create the alerts table if it does not already exist.
-    """
-    with conn.cursor() as cur:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS alerts (
-                id BIGSERIAL PRIMARY KEY,
-                ticker TEXT NOT NULL,
-                alert_type TEXT NOT NULL,
-                title TEXT NOT NULL,
-                message TEXT NOT NULL,
-                severity TEXT NOT NULL,
-                value NUMERIC,
-                reference_id TEXT,
-                created_at TIMESTAMPTZ DEFAULT NOW()
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_alerts_ticker_created
-            ON alerts(ticker, created_at DESC);
-        """)
-
-    conn.commit()
-
-
-def ensure_news_sentiment_table(conn):
-    with conn.cursor() as cur:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS news_sentiment (
-                id BIGSERIAL PRIMARY KEY,
-                ticker TEXT NOT NULL,
-                headline TEXT NOT NULL,
-                label TEXT,
-                score NUMERIC,
-                confidence NUMERIC,
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-
-                CONSTRAINT news_sentiment_ticker_headline_unique
-                UNIQUE (ticker, headline)
-            );
-        """)
-
-    conn.commit()
-
-
-def insert_news_sentiment(conn, ticker: str, results: list):
-    if not results:
-        return
+def ensure_predictions_table(
+    conn
+):
 
     with conn.cursor() as cur:
-        psycopg2.extras.execute_values(
-            cur,
+
+        cur.execute(
             """
-            INSERT INTO news_sentiment
-                (ticker, headline, label, score, confidence, created_at)
-            VALUES %s
-            ON CONFLICT (ticker, headline)
-            DO UPDATE SET
-                label = EXCLUDED.label,
-                score = EXCLUDED.score,
-                confidence = EXCLUDED.confidence,
-                created_at = NOW();
-            """,
-            [
-                (
-                    ticker,
-                    r["headline"],
-                    r["label"],
-                    r["score"],
-                    r["confidence"],
-                    datetime.now()
-                )
-                for r in results
-            ],
+            CREATE TABLE IF NOT EXISTS predictions (
+
+                ticker TEXT PRIMARY KEY,
+
+                symbol TEXT,
+
+                exchange TEXT,
+
+                current_price NUMERIC,
+
+                prob_up NUMERIC,
+
+                pred_direction TEXT,
+
+                sentiment_label TEXT,
+
+                sentiment_score NUMERIC,
+
+                combined_score NUMERIC,
+
+                recommendation TEXT,
+
+                updated_at TIMESTAMPTZ
+                    DEFAULT NOW()
+
+            );
+            """
         )
 
-    conn.commit()
 
+        cur.execute(
+            """
+            ALTER TABLE predictions
+            ADD COLUMN IF NOT EXISTS
+            previous_close NUMERIC(12,2);
+            """
+        )
 
-def insert_price_history(conn, ticker: str, price: float):
-    if price is None or price <= 0:
-        return
-
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO price_history
-                (ticker, price, recorded_at)
-            VALUES
-                (%s, %s, now())
-        """, (ticker, price))
 
     conn.commit()
 
 
-def insert_alert(
-    conn,
-    ticker: str,
-    alert_type: str,
-    title: str,
-    message: str,
-    severity: str,
-    value=None,
-    reference_id=None,
+# ============================================================
+# DATABASE: price_history
+# ============================================================
+
+def ensure_price_history_table(
+    conn
 ):
-    """
-    Insert a new alert into the alerts table.
 
-    Duplicate alerts with the same ticker, type and reference
-    are avoided when a reference_id is supplied.
-    """
     with conn.cursor() as cur:
 
-        if reference_id:
-            cur.execute("""
-                SELECT id
-                FROM alerts
-                WHERE ticker = %s
-                  AND alert_type = %s
-                  AND reference_id = %s
-                LIMIT 1;
-            """, (ticker, alert_type, reference_id))
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS price_history (
 
-            if cur.fetchone():
-                return
+                id BIGSERIAL PRIMARY KEY,
 
-        cur.execute("""
-            INSERT INTO alerts (
-                ticker, alert_type, title, message, severity,
-                value, reference_id, created_at
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW());
-        """, (ticker, alert_type, title, message, severity, value, reference_id))
+                ticker TEXT NOT NULL,
+
+                price NUMERIC NOT NULL,
+
+                recorded_at TIMESTAMPTZ
+                    DEFAULT NOW()
+
+            );
+            """
+        )
+
+
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_price_history_ticker_time
+
+            ON price_history(
+                ticker,
+                recorded_at DESC
+            );
+            """
+        )
+
 
     conn.commit()
 
 
-def generate_news_alerts(conn, result: dict):
-    """
-    Generate alerts for strongly positive or negative news.
+# ============================================================
+# DATABASE: alerts
+# ============================================================
 
-    FinBERT results are expected to contain:
-        headline, label, score, confidence
-    """
-    ticker = result["ticker"]
-    news_results = result.get("news_results", [])
-
-    if not news_results:
-        return
-
-    for news in news_results:
-        headline = news.get("headline", "").strip()
-        label = str(news.get("label", "")).strip().lower()
-        score = float(news.get("score", 0) or 0)
-        confidence = float(news.get("confidence", 0) or 0)
-
-        if not headline:
-            continue
-
-        if label == "positive" and confidence >= 0.80:
-            insert_alert(
-                conn=conn,
-                ticker=ticker,
-                alert_type="NEWS",
-                title=f"Positive news for {ticker}",
-                message=headline,
-                severity="POSITIVE",
-                value=score,
-                reference_id=f"NEWS:{ticker}:{headline}",
-            )
-        elif label == "negative" and confidence >= 0.80:
-            insert_alert(
-                conn=conn,
-                ticker=ticker,
-                alert_type="NEWS",
-                title=f"Negative news for {ticker}",
-                message=headline,
-                severity="NEGATIVE",
-                value=score,
-                reference_id=f"NEWS:{ticker}:{headline}",
-            )
-
-
-def generate_price_alert(conn, ticker: str, current_price: float):
-    """
-    Generate an alert when the current price has moved significantly
-    compared with the previous recorded price.
-
-    Threshold: +/- 3%
-    """
-    if current_price is None or current_price <= 0:
-        return
+def ensure_alerts_table(
+    conn
+):
 
     with conn.cursor() as cur:
-        cur.execute("""
-            SELECT price
-            FROM price_history
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS alerts (
+
+                id BIGSERIAL PRIMARY KEY,
+
+                ticker TEXT NOT NULL,
+
+                alert_type TEXT NOT NULL,
+
+                title TEXT NOT NULL,
+
+                message TEXT NOT NULL,
+
+                severity TEXT NOT NULL,
+
+                value NUMERIC,
+
+                reference_id TEXT,
+
+                created_at TIMESTAMPTZ
+                    DEFAULT NOW()
+
+            );
+            """
+        )
+
+
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_alerts_ticker_created
+
+            ON alerts(
+                ticker,
+                created_at DESC
+            );
+            """
+        )
+
+
+    conn.commit()
+
+
+# ============================================================
+# DATABASE: news_sentiment
+# ============================================================
+
+def ensure_news_sentiment_table(
+    conn
+):
+
+    with conn.cursor() as cur:
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS news_sentiment (
+
+                id BIGSERIAL PRIMARY KEY,
+
+                ticker TEXT NOT NULL,
+
+                headline TEXT NOT NULL,
+
+                label TEXT,
+
+                score NUMERIC,
+
+                confidence NUMERIC,
+
+                created_at TIMESTAMPTZ
+                    DEFAULT NOW(),
+
+                CONSTRAINT
+                    news_sentiment_ticker_headline_unique
+
+                UNIQUE (
+                    ticker,
+                    headline
+                )
+
+            );
+            """
+        )
+
+
+    conn.commit()
+
+
+# ============================================================
+# DATABASE: stock_history
+# ============================================================
+
+def ensure_stock_history_table(
+    conn
+):
+
+    with conn.cursor() as cur:
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS stock_history (
+
+                ticker TEXT NOT NULL,
+
+                date DATE NOT NULL,
+
+                open NUMERIC,
+
+                high NUMERIC,
+
+                low NUMERIC,
+
+                close NUMERIC,
+
+                volume BIGINT,
+
+                PRIMARY KEY (
+                    ticker,
+                    date
+                )
+
+            );
+            """
+        )
+
+
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_stock_history_ticker_date
+
+            ON stock_history(
+                ticker,
+                date DESC
+            );
+            """
+        )
+
+
+    conn.commit()
+
+
+# ============================================================
+# LOAD CACHED HISTORY
+# ============================================================
+
+def load_cached_history(
+    conn,
+    ticker: str
+):
+
+    with conn.cursor() as cur:
+
+        cur.execute(
+            """
+            SELECT
+
+                date,
+                open,
+                high,
+                low,
+                close,
+                volume
+
+            FROM stock_history
+
             WHERE ticker = %s
-            ORDER BY recorded_at DESC
-            LIMIT 1 OFFSET 1;
-        """, (ticker,))
-        row = cur.fetchone()
 
-    if not row:
-        return
+            ORDER BY date;
 
-    previous_price = float(row[0])
-    if previous_price <= 0:
-        return
+            """,
 
-    change_percent = ((current_price - previous_price) / previous_price) * 100
+            (ticker,)
 
-    # Ignore normal movements
-    if abs(change_percent) < 3:
-        return
+        )
 
-    if change_percent > 0:
-        alert_type = "PRICE_SURGE"
-        severity = "POSITIVE"
-        title = f"{ticker} price surge"
-        message = f"{ticker} increased by {change_percent:.2f}% from the previous recorded price."
-    else:
-        alert_type = "PRICE_DROP"
-        severity = "NEGATIVE"
-        title = f"{ticker} price drop"
-        message = f"{ticker} decreased by {abs(change_percent):.2f}% from the previous recorded price."
 
-    insert_alert(
-        conn=conn,
-        ticker=ticker,
-        alert_type=alert_type,
-        title=title,
-        message=message,
-        severity=severity,
-        value=round(change_percent, 2),
-        reference_id=None,
+        rows = cur.fetchall()
+
+
+    if not rows:
+
+        return None
+
+
+    df = pd.DataFrame(
+
+        rows,
+
+        columns=[
+
+            "Date",
+            "Open",
+            "High",
+            "Low",
+            "Close",
+            "Volume"
+
+        ]
+
     )
 
 
-def upsert_prediction(conn, row: dict):
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO predictions (ticker, symbol, exchange, current_price, previous_close, prob_up,
-                pred_direction, sentiment_label, sentiment_score, combined_score,
-                recommendation, updated_at)
-            VALUES (%(ticker)s, %(symbol)s, %(exchange)s, %(current_price)s, %(previous_close)s, %(prob_up)s,
-                %(pred_direction)s, %(sentiment_label)s, %(sentiment_score)s, %(combined_score)s,
-                %(recommendation)s, now())
-            ON CONFLICT (ticker) DO UPDATE SET
-                current_price = EXCLUDED.current_price,
-                previous_close = EXCLUDED.previous_close,
-                prob_up = EXCLUDED.prob_up,
-                pred_direction = EXCLUDED.pred_direction,
-                sentiment_label = EXCLUDED.sentiment_label,
-                sentiment_score = EXCLUDED.sentiment_score,
-                combined_score = EXCLUDED.combined_score,
-                recommendation = EXCLUDED.recommendation,
-                updated_at = now();
-        """, row)
-    conn.commit()
+    df["Date"] = pd.to_datetime(
+        df["Date"]
+    )
 
 
-def ensure_stock_history_table(conn):
-    """
-    Create the stock_history table used to cache daily OHLCV bars per
-    ticker in Postgres, so a server restart/redeploy doesn't lose the
-    cache and every scheduler run doesn't need a full re-download.
-    """
-    with conn.cursor() as cur:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS stock_history (
-                ticker  TEXT NOT NULL,
-                date    DATE NOT NULL,
-                open    NUMERIC,
-                high    NUMERIC,
-                low     NUMERIC,
-                close   NUMERIC,
-                volume  BIGINT,
-                PRIMARY KEY (ticker, date)
-            );
+    for column in [
 
-            CREATE INDEX IF NOT EXISTS idx_stock_history_ticker_date
-            ON stock_history(ticker, date DESC);
-        """)
-    conn.commit()
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+
+    ]:
+
+        df[column] = pd.to_numeric(
+            df[column],
+            errors="coerce"
+        )
 
 
-def load_cached_history(conn, ticker: str):
-    """
-    Load cached OHLCV bars for a ticker from stock_history.
-    Returns a DataFrame with Date, Open, High, Low, Close, Volume
-    (same shape as the yfinance fetch), or None if nothing is cached yet.
-    """
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT date, open, high, low, close, volume
-            FROM stock_history
-            WHERE ticker = %s
-            ORDER BY date;
-        """, (ticker,))
-        rows = cur.fetchall()
-
-    if not rows:
-        return None
-
-    df = pd.DataFrame(rows, columns=["Date", "Open", "High", "Low", "Close", "Volume"])
-    df["Date"] = pd.to_datetime(df["Date"])
-    for col in ["Open", "High", "Low", "Close", "Volume"]:
-        df[col] = df[col].astype(float)
     return df
 
 
-def save_stock_history(conn, ticker: str, df: pd.DataFrame):
-    """
-    Upsert freshly fetched OHLCV bars into stock_history so the next
-    scheduler run (even after a server restart) can fetch only the
-    incremental data from yfinance instead of the full lookback window.
-    """
-    if df.empty:
+# ============================================================
+# SAVE STOCK HISTORY
+# ============================================================
+
+def save_stock_history(
+    conn,
+    ticker: str,
+    df: pd.DataFrame
+):
+
+    if df is None or df.empty:
+
         return
 
-    records = [
-        (
-            ticker,
-            row["Date"].date(),
-            float(row["Open"]),
-            float(row["High"]),
-            float(row["Low"]),
-            float(row["Close"]),
-            int(row["Volume"]),
+
+    records = []
+
+
+    for _, row in df.iterrows():
+
+        volume = row[
+            "Volume"
+        ]
+
+
+        if pd.isna(volume):
+
+            volume = 0
+
+
+        records.append(
+
+            (
+                ticker,
+
+                pd.Timestamp(
+                    row["Date"]
+                ).date(),
+
+                float(
+                    row["Open"]
+                ),
+
+                float(
+                    row["High"]
+                ),
+
+                float(
+                    row["Low"]
+                ),
+
+                float(
+                    row["Close"]
+                ),
+
+                int(volume)
+
+            )
+
         )
-        for _, row in df.iterrows()
-    ]
+
+
+    if not records:
+
+        return
+
 
     with conn.cursor() as cur:
+
         psycopg2.extras.execute_values(
+
             cur,
+
             """
-            INSERT INTO stock_history (ticker, date, open, high, low, close, volume)
+            INSERT INTO stock_history
+            (
+                ticker,
+                date,
+                open,
+                high,
+                low,
+                close,
+                volume
+            )
+
             VALUES %s
-            ON CONFLICT (ticker, date) DO UPDATE SET
-                open = EXCLUDED.open,
-                high = EXCLUDED.high,
-                low = EXCLUDED.low,
-                close = EXCLUDED.close,
-                volume = EXCLUDED.volume;
+
+            ON CONFLICT
+            (
+                ticker,
+                date
+            )
+
+            DO UPDATE SET
+
+                open =
+                    EXCLUDED.open,
+
+                high =
+                    EXCLUDED.high,
+
+                low =
+                    EXCLUDED.low,
+
+                close =
+                    EXCLUDED.close,
+
+                volume =
+                    EXCLUDED.volume;
+
             """,
-            records,
+
+            records
+
         )
+
+
     conn.commit()
 
 
-def _normalize_ohlcv(raw: pd.DataFrame) -> pd.DataFrame:
-    """Reshape a raw yf.download() result into the Date/OHLCV column layout used everywhere else."""
-    if raw.empty:
-        return raw
-    df = raw.reset_index()
-    df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
-    df = df.rename(columns={"index": "Date"})[["Date", "Open", "High", "Low", "Close", "Volume"]]
-    df["Date"] = pd.to_datetime(df["Date"]).dt.tz_localize(None)
-    return df
+# ============================================================
+# NORMALIZE YFINANCE
+# ============================================================
+
+def normalize_ohlcv(
+    raw: pd.DataFrame
+):
+
+    if raw is None or raw.empty:
+
+        return pd.DataFrame()
 
 
-def process_ticker(symbol: str, exchange: str, conn) -> dict | None:
-    yt = yahoo_ticker(symbol, exchange)
-    if yt not in portfolio_models:
-        log.warning(f"No trained model for {yt}, skipping")
-        return None
+    df = raw.copy()
 
-    cached = load_cached_history(conn, yt)
+
+    if isinstance(
+        df.columns,
+        pd.MultiIndex
+    ):
+
+        df.columns = [
+
+            c[0]
+            for c in df.columns
+
+        ]
+
+
+    df = (
+        df
+        .reset_index()
+    )
+
+
+    if (
+        "Date"
+        not in
+        df.columns
+    ):
+
+        if (
+            "index"
+            in
+            df.columns
+        ):
+
+            df.rename(
+                columns={
+                    "index": "Date"
+                },
+                inplace=True
+            )
+
+
+    required = [
+
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+
+    ]
+
+
+    missing = [
+
+        c
+        for c in required
+        if c not in df.columns
+
+    ]
+
+
+    if missing:
+
+        raise ValueError(
+            f"Missing OHLCV columns: "
+            f"{missing}"
+        )
+
+
+    df = df[
+        required
+    ].copy()
+
+
+    df["Date"] = (
+        pd.to_datetime(
+            df["Date"]
+        )
+        .dt.tz_localize(None)
+    )
+
+
+    for column in [
+
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+
+    ]:
+
+        df[column] = pd.to_numeric(
+            df[column],
+            errors="coerce"
+        )
+
+
+    df.dropna(
+        subset=[
+            "Open",
+            "High",
+            "Low",
+            "Close"
+        ],
+        inplace=True
+    )
+
+
+    df.drop_duplicates(
+        subset=["Date"],
+        keep="last",
+        inplace=True
+    )
+
+
+    return (
+        df
+        .sort_values("Date")
+        .reset_index(drop=True)
+    )
+
+
+# ============================================================
+# GET / UPDATE HISTORY
+# ============================================================
+
+def get_stock_history(
+    conn,
+    ticker
+):
+
+    cached = load_cached_history(
+        conn,
+        ticker
+    )
+
+
+    # ========================================================
+    # COLD START
+    # ========================================================
 
     if cached is None or cached.empty:
-        # cold start for this ticker: no cache yet, do the full lookback download
-        fetched = _normalize_ohlcv(
-            yf.download(yt, period=LOOKBACK_PERIOD, interval="1d", progress=False, auto_adjust=False)
-        )
-    else:
-        # warm start: only fetch from the last cached date onward (live, incremental)
-        start_date = cached["Date"].max().strftime("%Y-%m-%d")
-        fetched = _normalize_ohlcv(
-            yf.download(yt, start=start_date, interval="1d", progress=False, auto_adjust=False)
+
+        log.info(
+            f"{ticker}: "
+            f"cold-start download "
+            f"({LOOKBACK_PERIOD})"
         )
 
-    if fetched.empty and (cached is None or cached.empty):
-        log.warning(f"Insufficient OHLCV data for {yt}")
-        return None
+
+        raw = yf.download(
+
+            ticker,
+
+            period=LOOKBACK_PERIOD,
+
+            interval="1d",
+
+            progress=False,
+
+            auto_adjust=True,
+
+            threads=False
+
+        )
+
+
+        fetched = normalize_ohlcv(
+            raw
+        )
+
+
+    # ========================================================
+    # INCREMENTAL
+    # ========================================================
+
+    else:
+
+        latest_date = (
+            cached[
+                "Date"
+            ].max()
+        )
+
+
+        # Download a few days of overlap
+        # so revised bars are captured.
+
+        start_date = (
+
+            latest_date
+            - pd.Timedelta(
+                days=3
+            )
+
+        ).strftime(
+            "%Y-%m-%d"
+        )
+
+
+        log.info(
+            f"{ticker}: "
+            f"incremental download "
+            f"from {start_date}"
+        )
+
+
+        raw = yf.download(
+
+            ticker,
+
+            start=start_date,
+
+            interval="1d",
+
+            progress=False,
+
+            auto_adjust=True,
+
+            threads=False
+
+        )
+
+
+        fetched = normalize_ohlcv(
+            raw
+        )
+
+
+    # ========================================================
+    # STORE NEW DATA
+    # ========================================================
 
     if not fetched.empty:
-        save_stock_history(conn, yt, fetched)
 
-    hist = fetched if cached is None or cached.empty else pd.concat([cached, fetched], ignore_index=True)
-    hist = hist.drop_duplicates(subset="Date", keep="last").sort_values("Date")
-    hist = hist[hist["Date"] >= (hist["Date"].max() - pd.Timedelta(days=730))].reset_index(drop=True)
+        save_stock_history(
 
-    if hist.empty or len(hist) < 60:
-        log.warning(f"Insufficient OHLCV data for {yt}")
+            conn,
+
+            ticker,
+
+            fetched
+
+        )
+
+
+    # ========================================================
+    # MERGE
+    # ========================================================
+
+    if cached is None or cached.empty:
+
+        history = fetched
+
+    else:
+
+        history = pd.concat(
+
+            [
+                cached,
+                fetched
+            ],
+
+            ignore_index=True
+
+        )
+
+
+    if history.empty:
+
+        return pd.DataFrame()
+
+
+    history = (
+
+        history
+
+        .drop_duplicates(
+            subset=["Date"],
+            keep="last"
+        )
+
+        .sort_values("Date")
+
+        .reset_index(drop=True)
+
+    )
+
+
+    # Keep the same 2-year deployment lookback.
+
+    max_date = (
+        history["Date"].max()
+    )
+
+
+    history = history[
+        history["Date"]
+        >=
+        (
+            max_date
+            - pd.Timedelta(
+                days=730
+            )
+        )
+    ].copy()
+
+
+    history.reset_index(
+        drop=True,
+        inplace=True
+    )
+
+
+    return history
+
+
+# ============================================================
+# GET TRAINED MODEL
+# ============================================================
+
+def get_model_for_ticker(
+    ticker
+):
+
+    if ticker not in portfolio_models:
+
+        return None, None
+
+
+    model_entry = (
+        portfolio_models[
+            ticker
+        ]
+    )
+
+
+    # --------------------------------------------------------
+    # Current training format:
+    #
+    # {
+    #     "model": calibrated_model,
+    #     "base_model": xgb_model,
+    #     "confidence_threshold": ...
+    # }
+    #
+    # --------------------------------------------------------
+
+    if isinstance(
+        model_entry,
+        dict
+    ):
+
+        model = model_entry.get(
+            "model"
+        )
+
+
+        threshold = model_entry.get(
+
+            "confidence_threshold",
+
+            model_entry.get(
+                "threshold",
+                0.50
+            )
+
+        )
+
+
+    else:
+
+        # Compatibility with older pkl files
+
+        model = model_entry
+
+        threshold = 0.50
+
+
+    if model is None:
+
+        return None, None
+
+
+    return (
+        model,
+        float(threshold)
+    )
+
+
+# ============================================================
+# PROCESS TICKER
+# ============================================================
+
+def process_ticker(
+    symbol: str,
+    exchange: str,
+    conn
+):
+
+    ticker = yahoo_ticker(
+        symbol,
+        exchange
+    )
+
+
+    # ========================================================
+    # ONLY USE TRAINED STOCKS
+    # ========================================================
+
+    if ticker not in portfolio_models:
+
+        log.warning(
+            f"No trained model for "
+            f"{ticker}, skipping."
+        )
+
         return None
 
-    eng = create_stationary_features(hist)
-    try:
-        eng["Stock_ID"] = stock_encoder.transform([yt])[0]
-    except ValueError:
-        eng["Stock_ID"] = 0
 
-    eng.replace([np.inf, -np.inf], np.nan, inplace=True)
-    valid = eng.dropna(subset=feature_columns)
+    model, confidence_threshold = (
+        get_model_for_ticker(
+            ticker
+        )
+    )
+
+
+    if model is None:
+
+        log.warning(
+            f"No usable model for "
+            f"{ticker}, skipping."
+        )
+
+        return None
+
+
+    # ========================================================
+    # LOAD HISTORY
+    # ========================================================
+
+    hist = get_stock_history(
+
+        conn,
+
+        ticker
+
+    )
+
+
+    if hist.empty:
+
+        log.warning(
+            f"{ticker}: "
+            f"No historical data."
+        )
+
+        return None
+
+
+    if len(hist) < MIN_HISTORY_ROWS:
+
+        log.warning(
+            f"{ticker}: "
+            f"Only {len(hist)} rows. "
+            f"Need {MIN_HISTORY_ROWS}."
+        )
+
+        return None
+
+
+    # ========================================================
+    # EXACT TRAINED FEATURE ENGINEERING
+    # ========================================================
+
+    eng = (
+        create_stationary_features(
+            hist
+        )
+    )
+
+
+    eng.replace(
+
+        [
+            np.inf,
+            -np.inf
+        ],
+
+        np.nan,
+
+        inplace=True
+
+    )
+
+
+    valid = (
+        eng
+        .dropna(
+            subset=feature_columns
+        )
+        .sort_values("Date")
+    )
+
+
     if valid.empty:
-        log.warning(f"No valid feature rows for {yt}")
+
+        log.warning(
+            f"{ticker}: "
+            f"No valid model features."
+        )
+
         return None
 
-    valid_sorted = valid.sort_values("Date")
-    latest = valid_sorted.iloc[[-1]]
-    last_close = float(latest["Close"].values[0])
-    previous_close = float(valid_sorted["Close"].iloc[-2]) if len(valid_sorted) >= 2 else None
-    X_in = latest[feature_columns]
 
-    model = portfolio_models[yt]
-    prob_up = float(model.predict_proba(X_in)[0][1])
-    pred_dir = int(model.predict(X_in)[0])
+    latest = (
+        valid
+        .iloc[[-1]]
+        .copy()
+    )
 
-    sentiment = {"avg_score": 0.0, "sentiment_label": "Neutral", "results": []}
-    ticker_obj = yf.Ticker(yt)
-    if finbert is not None:
-        headlines = fetch_news_headlines(ticker_obj, max_headlines=MAX_HEADLINES)
-        sentiment = finbert.analyze_batch(headlines)
 
-    combined, rec = compute_hybrid_score(prob_up, sentiment["avg_score"])
+    X_in = latest[
+        feature_columns
+    ]
+
+
+    # ========================================================
+    # MACHINE-LEARNING PREDICTION
+    # ========================================================
+
+    probabilities = (
+        model
+        .predict_proba(
+            X_in
+        )[0]
+    )
+
+
+    prob_down = float(
+        probabilities[0]
+    )
+
+
+    prob_up = float(
+        probabilities[1]
+    )
+
+
+    # ========================================================
+    # HIGH-CONFIDENCE MODEL SIGNAL
+    # ========================================================
+
+    if (
+        prob_up
+        >=
+        confidence_threshold
+    ):
+
+        pred_direction = "UP"
+
+
+    elif (
+        prob_down
+        >=
+        confidence_threshold
+    ):
+
+        pred_direction = "DOWN"
+
+
+    else:
+
+        pred_direction = "NO SIGNAL"
+
+
+    # ========================================================
+    # LIVE PRICE
+    # ========================================================
+
+    ticker_obj = (
+        yf.Ticker(
+            ticker
+        )
+    )
+
+
+    last_close = float(
+        latest[
+            "Close"
+        ].iloc[0]
+    )
+
+
+    previous_close = None
+
+
+    if len(hist) >= 2:
+
+        previous_close = float(
+
+            hist[
+                "Close"
+            ].iloc[-2]
+
+        )
+
 
     try:
-        price = float(ticker_obj.fast_info.last_price)
-        if np.isnan(price) or price <= 0:
+
+        price = float(
+            ticker_obj
+            .fast_info
+            .last_price
+        )
+
+
+        if (
+            np.isnan(price)
+            or
+            price <= 0
+        ):
+
             raise ValueError
+
+
     except Exception:
+
         price = last_close
 
+
     try:
-        live_previous_close = float(ticker_obj.fast_info.previous_close)
-        if not np.isnan(live_previous_close) and live_previous_close > 0:
-            previous_close = live_previous_close
+
+        live_previous = float(
+
+            ticker_obj
+            .fast_info
+            .previous_close
+
+        )
+
+
+        if (
+
+            not np.isnan(
+                live_previous
+            )
+
+            and
+
+            live_previous > 0
+
+        ):
+
+            previous_close = (
+                live_previous
+            )
+
+
     except Exception:
+
         pass
 
-    return {
-        "ticker": yt,
-        "symbol": symbol,
-        "exchange": exchange,
-        "current_price": round(price, 2),
-        "previous_close": round(previous_close, 2) if previous_close is not None else None,
-        "prob_up": round(prob_up, 4),
-        "pred_direction": "UP" if pred_dir == 1 else "DOWN",
-        "sentiment_label": sentiment["sentiment_label"],
-        "sentiment_score": round(sentiment["avg_score"], 4),
-        "combined_score": round(combined, 4),
-        "recommendation": rec,
-        "news_results": sentiment["results"],
+
+    # ========================================================
+    # FINBERT SENTIMENT
+    # ========================================================
+
+    sentiment = {
+
+        "avg_score": 0.0,
+
+        "sentiment_label":
+            "Neutral",
+
+        "results": []
+
     }
 
 
-def get_user_watchlist(conn):
-    """
-    Fetch all stocks currently present in the watchlist.
-    """
+    if finbert is not None:
+
+        headlines = (
+            fetch_news_headlines(
+
+                ticker_obj,
+
+                max_headlines=
+                    MAX_HEADLINES
+
+            )
+        )
+
+
+        sentiment = (
+            finbert
+            .analyze_batch(
+                headlines
+            )
+        )
+
+
+    # ========================================================
+    # HYBRID SCORE
+    # ========================================================
+    #
+    # FinBERT does NOT enter the XGBoost model.
+    #
+    # It is a separate downstream signal.
+    #
+    # ========================================================
+
+    combined_score, recommendation = (
+        compute_hybrid_score(
+
+            prob_up,
+
+            sentiment[
+                "avg_score"
+            ]
+
+        )
+    )
+
+
+    # ========================================================
+    # RETURN RESULT
+    # ========================================================
+
+    return {
+
+        "ticker":
+            ticker,
+
+        "symbol":
+            symbol,
+
+        "exchange":
+            exchange,
+
+        "current_price":
+            round(
+                price,
+                2
+            ),
+
+        "previous_close":
+            (
+                round(
+                    previous_close,
+                    2
+                )
+
+                if previous_close
+                is not None
+
+                else None
+            ),
+
+        "prob_up":
+            round(
+                prob_up,
+                4
+            ),
+
+        "pred_direction":
+            pred_direction,
+
+        "sentiment_label":
+            sentiment[
+                "sentiment_label"
+            ],
+
+        "sentiment_score":
+            round(
+                sentiment[
+                    "avg_score"
+                ],
+                4
+            ),
+
+        "combined_score":
+            round(
+                combined_score,
+                4
+            ),
+
+        "recommendation":
+            recommendation,
+
+        "news_results":
+            sentiment[
+                "results"
+            ]
+
+    }
+
+
+# ============================================================
+# UPSERT PREDICTION
+# ============================================================
+#
+# IMPORTANT:
+# Existing database uses:
+#     pred_direction
+#
+# NOT:
+#     prediction
+#
+# This fixes the PostgreSQL error you encountered.
+#
+# ============================================================
+
+def upsert_prediction(
+    conn,
+    row: dict
+):
+
     with conn.cursor() as cur:
-        cur.execute("""
-            SELECT id, user_id, symbol, company_name, exchange
+
+        cur.execute(
+
+            """
+            INSERT INTO predictions
+            (
+                ticker,
+                symbol,
+                exchange,
+                current_price,
+                previous_close,
+                prob_up,
+                pred_direction,
+                sentiment_label,
+                sentiment_score,
+                combined_score,
+                recommendation,
+                updated_at
+            )
+
+            VALUES
+            (
+                %(ticker)s,
+                %(symbol)s,
+                %(exchange)s,
+                %(current_price)s,
+                %(previous_close)s,
+                %(prob_up)s,
+                %(pred_direction)s,
+                %(sentiment_label)s,
+                %(sentiment_score)s,
+                %(combined_score)s,
+                %(recommendation)s,
+                NOW()
+            )
+
+            ON CONFLICT (ticker)
+
+            DO UPDATE SET
+
+                symbol =
+                    EXCLUDED.symbol,
+
+                exchange =
+                    EXCLUDED.exchange,
+
+                current_price =
+                    EXCLUDED.current_price,
+
+                previous_close =
+                    EXCLUDED.previous_close,
+
+                prob_up =
+                    EXCLUDED.prob_up,
+
+                pred_direction =
+                    EXCLUDED.pred_direction,
+
+                sentiment_label =
+                    EXCLUDED.sentiment_label,
+
+                sentiment_score =
+                    EXCLUDED.sentiment_score,
+
+                combined_score =
+                    EXCLUDED.combined_score,
+
+                recommendation =
+                    EXCLUDED.recommendation,
+
+                updated_at =
+                    NOW();
+
+            """,
+
+            row
+
+        )
+
+
+    conn.commit()
+
+
+# ============================================================
+# INSERT NEWS SENTIMENT
+# ============================================================
+
+def insert_news_sentiment(
+    conn,
+    ticker: str,
+    results: list
+):
+
+    if not results:
+
+        return
+
+
+    with conn.cursor() as cur:
+
+        psycopg2.extras.execute_values(
+
+            cur,
+
+            """
+            INSERT INTO news_sentiment
+            (
+                ticker,
+                headline,
+                label,
+                score,
+                confidence,
+                created_at
+            )
+
+            VALUES %s
+
+            ON CONFLICT (
+                ticker,
+                headline
+            )
+
+            DO UPDATE SET
+
+                label =
+                    EXCLUDED.label,
+
+                score =
+                    EXCLUDED.score,
+
+                confidence =
+                    EXCLUDED.confidence,
+
+                created_at =
+                    NOW();
+
+            """,
+
+            [
+
+                (
+
+                    ticker,
+
+                    result[
+                        "headline"
+                    ],
+
+                    result[
+                        "label"
+                    ],
+
+                    result[
+                        "score"
+                    ],
+
+                    result[
+                        "confidence"
+                    ],
+
+                    datetime.now()
+
+                )
+
+                for result in results
+
+            ]
+
+        )
+
+
+    conn.commit()
+
+
+# ============================================================
+# INSERT PRICE HISTORY
+# ============================================================
+
+def insert_price_history(
+    conn,
+    ticker: str,
+    price: float
+):
+
+    if (
+        price is None
+        or
+        price <= 0
+    ):
+
+        return
+
+
+    with conn.cursor() as cur:
+
+        cur.execute(
+
+            """
+            INSERT INTO price_history
+            (
+                ticker,
+                price,
+                recorded_at
+            )
+
+            VALUES
+            (
+                %s,
+                %s,
+                NOW()
+            );
+
+            """,
+
+            (
+                ticker,
+                price
+            )
+
+        )
+
+
+    conn.commit()
+
+
+# ============================================================
+# INSERT ALERT
+# ============================================================
+
+def insert_alert(
+    conn,
+    ticker,
+    alert_type,
+    title,
+    message,
+    severity,
+    value=None,
+    reference_id=None
+):
+
+    with conn.cursor() as cur:
+
+        if reference_id:
+
+            cur.execute(
+
+                """
+                SELECT id
+
+                FROM alerts
+
+                WHERE ticker = %s
+
+                AND alert_type = %s
+
+                AND reference_id = %s
+
+                LIMIT 1;
+
+                """,
+
+                (
+                    ticker,
+                    alert_type,
+                    reference_id
+                )
+
+            )
+
+
+            if cur.fetchone():
+
+                return
+
+
+        cur.execute(
+
+            """
+            INSERT INTO alerts
+            (
+                ticker,
+                alert_type,
+                title,
+                message,
+                severity,
+                value,
+                reference_id,
+                created_at
+            )
+
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                NOW()
+            );
+
+            """,
+
+            (
+                ticker,
+                alert_type,
+                title,
+                message,
+                severity,
+                value,
+                reference_id
+            )
+
+        )
+
+
+    conn.commit()
+
+
+# ============================================================
+# NEWS ALERTS
+# ============================================================
+
+def generate_news_alerts(
+    conn,
+    result: dict
+):
+
+    ticker = (
+        result["ticker"]
+    )
+
+
+    news_results = (
+        result.get(
+            "news_results",
+            []
+        )
+    )
+
+
+    if not news_results:
+
+        return
+
+
+    for news in news_results:
+
+        headline = (
+            news
+            .get(
+                "headline",
+                ""
+            )
+            .strip()
+        )
+
+
+        label = (
+            str(
+                news.get(
+                    "label",
+                    ""
+                )
+            )
+            .strip()
+            .lower()
+        )
+
+
+        score = float(
+            news.get(
+                "score",
+                0
+            )
+            or
+            0
+        )
+
+
+        confidence = float(
+            news.get(
+                "confidence",
+                0
+            )
+            or
+            0
+        )
+
+
+        if not headline:
+
+            continue
+
+
+        # ----------------------------------------------------
+        # Strong positive news
+        # ----------------------------------------------------
+
+        if (
+
+            label
+            == "positive"
+
+            and
+
+            confidence
+            >= 0.80
+
+        ):
+
+            insert_alert(
+
+                conn=conn,
+
+                ticker=ticker,
+
+                alert_type="NEWS",
+
+                title=(
+                    f"Positive news "
+                    f"for {ticker}"
+                ),
+
+                message=headline,
+
+                severity="POSITIVE",
+
+                value=score,
+
+                reference_id=(
+                    f"NEWS:"
+                    f"{ticker}:"
+                    f"{headline}"
+                )
+
+            )
+
+
+        # ----------------------------------------------------
+        # Strong negative news
+        # ----------------------------------------------------
+
+        elif (
+
+            label
+            == "negative"
+
+            and
+
+            confidence
+            >= 0.80
+
+        ):
+
+            insert_alert(
+
+                conn=conn,
+
+                ticker=ticker,
+
+                alert_type="NEWS",
+
+                title=(
+                    f"Negative news "
+                    f"for {ticker}"
+                ),
+
+                message=headline,
+
+                severity="NEGATIVE",
+
+                value=score,
+
+                reference_id=(
+                    f"NEWS:"
+                    f"{ticker}:"
+                    f"{headline}"
+                )
+
+            )
+
+
+# ============================================================
+# PRICE ALERT
+# ============================================================
+
+def generate_price_alert(
+    conn,
+    ticker,
+    current_price
+):
+
+    if (
+        current_price is None
+        or
+        current_price <= 0
+    ):
+
+        return
+
+
+    with conn.cursor() as cur:
+
+        cur.execute(
+
+            """
+            SELECT price
+
+            FROM price_history
+
+            WHERE ticker = %s
+
+            ORDER BY recorded_at DESC
+
+            LIMIT 1 OFFSET 1;
+
+            """,
+
+            (ticker,)
+
+        )
+
+
+        row = cur.fetchone()
+
+
+    if not row:
+
+        return
+
+
+    previous_price = float(
+        row[0]
+    )
+
+
+    if previous_price <= 0:
+
+        return
+
+
+    change_percent = (
+
+        (
+            current_price
+            -
+            previous_price
+        )
+        /
+        previous_price
+
+    ) * 100
+
+
+    if abs(
+        change_percent
+    ) < 3:
+
+        return
+
+
+    if change_percent > 0:
+
+        alert_type = (
+            "PRICE_SURGE"
+        )
+
+        severity = (
+            "POSITIVE"
+        )
+
+        title = (
+            f"{ticker} price surge"
+        )
+
+        message = (
+
+            f"{ticker} increased by "
+            f"{change_percent:.2f}% "
+            f"from the previous recorded price."
+
+        )
+
+    else:
+
+        alert_type = (
+            "PRICE_DROP"
+        )
+
+        severity = (
+            "NEGATIVE"
+        )
+
+        title = (
+            f"{ticker} price drop"
+        )
+
+        message = (
+
+            f"{ticker} decreased by "
+            f"{abs(change_percent):.2f}% "
+            f"from the previous recorded price."
+
+        )
+
+
+    insert_alert(
+
+        conn=conn,
+
+        ticker=ticker,
+
+        alert_type=alert_type,
+
+        title=title,
+
+        message=message,
+
+        severity=severity,
+
+        value=round(
+            change_percent,
+            2
+        ),
+
+        reference_id=None
+
+    )
+
+
+# ============================================================
+# USER WATCHLIST
+# ============================================================
+
+def get_user_watchlist(
+    conn
+):
+
+    with conn.cursor() as cur:
+
+        cur.execute(
+
+            """
+            SELECT
+
+                id,
+                user_id,
+                symbol,
+                company_name,
+                exchange
+
             FROM watchlist
+
             ORDER BY id;
-        """)
+
+            """
+
+        )
+
+
         rows = cur.fetchall()
 
+
     return [
+
         {
-            "id": row[0],
-            "user_id": row[1],
-            "symbol": row[2],
-            "company_name": row[3],
-            "exchange": row[4],
+
+            "id":
+                row[0],
+
+            "user_id":
+                row[1],
+
+            "symbol":
+                row[2],
+
+            "company_name":
+                row[3],
+
+            "exchange":
+                row[4]
+
         }
+
         for row in rows
+
     ]
 
 
-def get_full_watchlist(conn):
-    """
-    Full universe to predict on: every Nifty-50 stock, plus anything a user
-    has added to the 'watchlist' table that isn't already covered by it.
-    De-duplicated on (symbol, exchange) so nothing is ever processed twice.
-    """
+# ============================================================
+# FULL WATCHLIST
+# ============================================================
+#
+# Only stocks with trained models are included.
+#
+# ============================================================
+
+def get_full_watchlist(
+    conn
+):
+
     combined = {}
 
-    for entry in get_nifty50_watchlist():
-        key = (entry["symbol"].strip().upper(), (entry["exchange"] or "NSE").strip().upper())
+
+    # --------------------------------------------------------
+    # Nifty 50
+    # --------------------------------------------------------
+
+    for symbol in NIFTY_50_SYMBOLS:
+
+        ticker = (
+            symbol.upper()
+            + ".NS"
+        )
+
+
+        if ticker not in portfolio_models:
+
+            continue
+
+
+        key = (
+
+            symbol.upper(),
+
+            "NSE"
+
+        )
+
+
+        combined[key] = {
+
+            "symbol":
+                symbol.upper(),
+
+            "exchange":
+                "NSE"
+
+        }
+
+
+    # --------------------------------------------------------
+    # User watchlist
+    # --------------------------------------------------------
+
+    for entry in (
+        get_user_watchlist(
+            conn
+        )
+    ):
+
+        symbol = (
+            entry["symbol"]
+            .strip()
+            .upper()
+        )
+
+
+        exchange = (
+            entry["exchange"]
+            or
+            "NSE"
+        ).strip().upper()
+
+
+        ticker = yahoo_ticker(
+
+            symbol,
+
+            exchange
+
+        )
+
+
+        # Don't predict untrained stocks
+
+        if ticker not in portfolio_models:
+
+            log.info(
+
+                f"{ticker}: "
+                f"no trained model, "
+                f"skipping."
+
+            )
+
+            continue
+
+
+        key = (
+
+            symbol,
+
+            exchange
+
+        )
+
+
         combined[key] = entry
 
-    for entry in get_user_watchlist(conn):
-        key = (entry["symbol"].strip().upper(), (entry["exchange"] or "NSE").strip().upper())
-        combined.setdefault(key, entry)
 
-    return list(combined.values())
+    return list(
+        combined.values()
+    )
 
+
+# ============================================================
+# MAIN JOB
+# ============================================================
 
 def run_job():
     log.info("Job started")
 
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = None
 
     try:
-        ensure_predictions_table(conn)
-        ensure_news_sentiment_table(conn)
-        ensure_price_history_table(conn)
-        ensure_alerts_table(conn)
-        ensure_stock_history_table(conn)
+        # ====================================================
+        # DATABASE CONNECTION
+        # ====================================================
 
-        watchlist = get_full_watchlist(conn)
-        log.info(f"Stocks to process: {len(watchlist)} (Nifty-50 + user watchlist, deduped)")
+        log.info("Connecting to PostgreSQL...")
 
-        if not watchlist:
-            log.warning(
-                "Stock universe is EMPTY - there is nothing to process, so no table will be "
-                "updated this run. Check NIFTY_50_SYMBOLS and the 'watchlist' table."
+        db_host = parsed_db_url.hostname
+        db_port = parsed_db_url.port or 5432
+
+        log.info(
+            f"Resolving DB host: "
+            f"{db_host}:{db_port}"
+        )
+
+        try:
+            addresses = socket.getaddrinfo(
+                db_host,
+                db_port,
+                type=socket.SOCK_STREAM
             )
 
-        processed, skipped, failed = 0, 0, 0
+            log.info(
+                f"Python resolved DB addresses: "
+                f"{addresses}"
+            )
+
+        except socket.gaierror as e:
+
+            log.error(
+                f"Python DNS resolution failed: {e}"
+            )
+
+            raise
+
+
+        # ====================================================
+        # CONNECT
+        # ====================================================
+
+        conn = psycopg2.connect(
+            DATABASE_URL,
+            connect_timeout=15
+        )
+
+        log.info(
+            "✅ PostgreSQL connection established"
+        )
+
+
+        # ====================================================
+        # ENSURE DATABASE TABLES
+        # ====================================================
+
+        ensure_predictions_table(conn)
+
+        ensure_news_sentiment_table(conn)
+
+        ensure_price_history_table(conn)
+
+        ensure_alerts_table(conn)
+
+        ensure_stock_history_table(conn)
+
+
+        # ====================================================
+        # WATCHLIST
+        # ====================================================
+
+        watchlist = get_full_watchlist(
+            conn
+        )
+
+        log.info(
+            f"Stocks to process: "
+            f"{len(watchlist)}"
+        )
+
+
+        if not watchlist:
+
+            log.warning(
+                "Stock universe is empty. "
+                "Nothing to process."
+            )
+
+            return
+
+
+        # ====================================================
+        # COUNTERS
+        # ====================================================
+
+        processed = 0
+
+        skipped = 0
+
+        failed = 0
+
+
+        # ====================================================
+        # PROCESS STOCKS
+        # ====================================================
 
         for entry in watchlist:
-            symbol = entry["symbol"]
-            exchange = entry["exchange"]
-            log.info(f"Processing {symbol}.{exchange} ...")
+
+            symbol = entry[
+                "symbol"
+            ]
+
+            exchange = entry[
+                "exchange"
+            ]
+
+
+            log.info(
+                f"Processing "
+                f"{symbol}.{exchange} ..."
+            )
+
 
             try:
-                result = process_ticker(symbol, exchange, conn)
+
+                # ============================================
+                # PREDICTION
+                # ============================================
+
+                result = process_ticker(
+
+                    symbol,
+
+                    exchange,
+
+                    conn
+
+                )
+
 
                 if not result:
+
                     skipped += 1
+
+                    log.warning(
+                        f"Skipped "
+                        f"{symbol}.{exchange}"
+                    )
+
                     continue
 
-                # 1. Prediction
-                upsert_prediction(conn, result)
 
-                # 2. FinBERT news sentiment
-                insert_news_sentiment(conn, result["ticker"], result["news_results"])
+                # ============================================
+                # 1. SAVE ML + HYBRID PREDICTION
+                # ============================================
 
-                # 3. Important news alerts
-                generate_news_alerts(conn, result)
+                upsert_prediction(
 
-                # 4. Price history + sudden price movement alert
-                insert_price_history(conn, result["ticker"], result["current_price"])
-                generate_price_alert(conn, result["ticker"], result["current_price"])
+                    conn,
+
+                    result
+
+                )
+
+
+                # ============================================
+                # 2. SAVE FINBERT NEWS SENTIMENT
+                # ============================================
+
+                insert_news_sentiment(
+
+                    conn,
+
+                    result[
+                        "ticker"
+                    ],
+
+                    result[
+                        "news_results"
+                    ]
+
+                )
+
+
+                # ============================================
+                # 3. GENERATE NEWS ALERTS
+                # ============================================
+
+                generate_news_alerts(
+
+                    conn,
+
+                    result
+
+                )
+
+
+                # ============================================
+                # 4. SAVE PRICE HISTORY
+                # ============================================
+
+                insert_price_history(
+
+                    conn,
+
+                    result[
+                        "ticker"
+                    ],
+
+                    result[
+                        "current_price"
+                    ]
+
+                )
+
+
+                # ============================================
+                # 5. GENERATE PRICE ALERT
+                # ============================================
+
+                generate_price_alert(
+
+                    conn,
+
+                    result[
+                        "ticker"
+                    ],
+
+                    result[
+                        "current_price"
+                    ]
+
+                )
+
+
+                # ============================================
+                # SUCCESS
+                # ============================================
 
                 processed += 1
+
+
                 log.info(
-                    f"{result['ticker']}: {result['recommendation']} "
-                    f"(combined={result['combined_score']}, price={result['current_price']})"
+
+                    f"{result['ticker']}: "
+
+                    f"MODEL="
+                    f"{result['pred_direction']} | "
+
+                    f"UP="
+                    f"{result['prob_up']:.2%} | "
+
+                    f"SENTIMENT="
+                    f"{result['sentiment_label']} | "
+
+                    f"SENTIMENT_SCORE="
+                    f"{result['sentiment_score']:.2f} | "
+
+                    f"COMBINED="
+                    f"{result['combined_score']:.2%} | "
+
+                    f"RECOMMENDATION="
+                    f"{result['recommendation']} | "
+
+                    f"PRICE="
+                    f"{result['current_price']}"
+
+                )
+
+
+            except Exception as e:
+
+                # ============================================
+                # STOCK-LEVEL FAILURE
+                # ============================================
+
+                failed += 1
+
+
+                log.exception(
+
+                    f"Failed processing "
+                    f"{symbol}.{exchange}: {e}"
+
+                )
+
+
+                # Important:
+                # Clear failed PostgreSQL transaction so
+                # the next stock can still be processed.
+
+                try:
+
+                    conn.rollback()
+
+                except Exception:
+
+                    pass
+
+
+        # ====================================================
+        # SUMMARY
+        # ====================================================
+
+        log.info(
+            "=" * 70
+        )
+
+        log.info(
+            "Prediction job summary"
+        )
+
+        log.info(
+            f"Processed: {processed}"
+        )
+
+        log.info(
+            f"Skipped  : {skipped}"
+        )
+
+        log.info(
+            f"Failed   : {failed}"
+        )
+
+        log.info(
+            "=" * 70
+        )
+
+
+    except Exception as e:
+
+        # ====================================================
+        # JOB-LEVEL FAILURE
+        # ====================================================
+
+        log.exception(
+            f"Prediction job failed: {e}"
+        )
+
+        if conn is not None:
+
+            try:
+
+                conn.rollback()
+
+            except Exception:
+
+                pass
+
+        raise
+
+
+    finally:
+
+        # ====================================================
+        # CLOSE DATABASE
+        # ====================================================
+
+        if conn is not None:
+
+            try:
+
+                conn.close()
+
+                log.info(
+                    "PostgreSQL connection closed"
                 )
 
             except Exception as e:
-                failed += 1
-                log.exception(f"Failed processing {symbol}: {e}")
-                conn.rollback()  # clear the failed transaction so the NEXT ticker can still write
 
-        log.info(f"Summary: processed={processed} skipped={skipped} failed={failed}")
+                log.warning(
+                    f"Error closing PostgreSQL "
+                    f"connection: {e}"
+                )
 
-    finally:
-        conn.close()
 
-    log.info("Job finished")
-
+    log.info(
+        "Prediction job finished"
+    )
+# ============================================================
+# ENTRY POINT
+# ============================================================
 
 if __name__ == "__main__":
-    run_job()  # run once immediately on startup
+
+    run_job()

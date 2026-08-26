@@ -13,14 +13,11 @@ const MARKET_API_URL =
 async function loadMarketData() {
 
     const container =
-        document.getElementById(
-            "market-container"
-        );
+        document.getElementById("market-container");
 
     if (!container) {
         return;
     }
-
 
     try {
 
@@ -47,7 +44,10 @@ async function loadMarketData() {
 
                 headers: {
                     "Authorization":
-                        `Bearer ${token}`
+                        `Bearer ${token}`,
+
+                    "Content-Type":
+                        "application/json"
                 }
             }
         );
@@ -89,6 +89,167 @@ async function loadMarketData() {
 
 
 // ==========================================
+// Get BUY / HOLD / SELL Suggestion
+// ==========================================
+//
+// Priority:
+//
+// 1. Use suggestion coming from backend
+// 2. Otherwise calculate using changePercent
+//
+// This keeps your frontend compatible with
+// the existing API.
+// ==========================================
+
+function getMarketSuggestion(stock) {
+
+    // ======================================
+    // Backend suggestion
+    // ======================================
+
+    if (stock.suggestion) {
+
+        const suggestion =
+            String(stock.suggestion)
+                .trim()
+                .toUpperCase();
+
+
+        if (
+            suggestion === "BUY" ||
+            suggestion === "HOLD" ||
+            suggestion === "SELL"
+        ) {
+
+            return suggestion;
+
+        }
+
+    }
+
+
+    // ======================================
+    // Other possible backend field names
+    // ======================================
+
+    if (stock.recommendation) {
+
+        const recommendation =
+            String(stock.recommendation)
+                .trim()
+                .toUpperCase();
+
+
+        if (
+            recommendation === "BUY" ||
+            recommendation === "HOLD" ||
+            recommendation === "SELL"
+        ) {
+
+            return recommendation;
+
+        }
+
+    }
+
+
+    if (stock.signal) {
+
+        const signal =
+            String(stock.signal)
+                .trim()
+                .toUpperCase();
+
+
+        if (
+            signal === "BUY" ||
+            signal === "HOLD" ||
+            signal === "SELL"
+        ) {
+
+            return signal;
+
+        }
+
+    }
+
+
+    // ======================================
+    // Fallback calculation
+    // ======================================
+
+    const changePercent =
+        Number(stock.changePercent);
+
+
+    if (
+        stock.changePercent === null ||
+        stock.changePercent === undefined ||
+        Number.isNaN(changePercent)
+    ) {
+
+        return "HOLD";
+
+    }
+
+
+    /*
+        Simple momentum-based fallback:
+
+        >= +1%  → BUY
+        <= -1%  → SELL
+        between → HOLD
+
+        IMPORTANT:
+        This is only a simple UI fallback.
+        If your Python/AI backend already
+        calculates recommendations, return
+        that value from the backend instead.
+    */
+
+    if (changePercent >= 1) {
+
+        return "BUY";
+
+    }
+
+
+    if (changePercent <= -1) {
+
+        return "SELL";
+
+    }
+
+
+    return "HOLD";
+
+}
+
+
+// ==========================================
+// Suggestion CSS Class
+// ==========================================
+
+function getSuggestionClass(suggestion) {
+
+    switch (suggestion) {
+
+        case "BUY":
+            return "market-suggestion-buy";
+
+        case "SELL":
+            return "market-suggestion-sell";
+
+        case "HOLD":
+        default:
+            return "market-suggestion-hold";
+
+    }
+
+}
+
+
+// ==========================================
 // Render Market Data
 // ==========================================
 
@@ -110,6 +271,7 @@ function renderMarketData(stocks) {
         `;
 
         return;
+
     }
 
 
@@ -157,11 +319,13 @@ function renderMarketData(stocks) {
 
 
         // ==================================
-        // Price
+        // Current Price
         // ==================================
 
         const price =
-            stock.currentPrice !== null
+            stock.currentPrice !== null &&
+            stock.currentPrice !== undefined
+
                 ? `₹${Number(
                     stock.currentPrice
                 ).toLocaleString(
@@ -171,6 +335,28 @@ function renderMarketData(stocks) {
                         maximumFractionDigits: 2
                     }
                 )}`
+
+                : "--";
+
+
+        // ==================================
+        // Previous Close
+        // ==================================
+
+        const previousClose =
+            stock.previousClose !== null &&
+            stock.previousClose !== undefined
+
+                ? `₹${Number(
+                    stock.previousClose
+                ).toLocaleString(
+                    "en-IN",
+                    {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }
+                )}`
+
                 : "--";
 
 
@@ -180,21 +366,46 @@ function renderMarketData(stocks) {
 
         let changeText = "--";
 
+
         if (
             stock.change !== null &&
-            stock.changePercent !== null
+            stock.change !== undefined &&
+            stock.changePercent !== null &&
+            stock.changePercent !== undefined
         ) {
 
+            const change =
+                Number(stock.change);
+
+            const changePercent =
+                Number(stock.changePercent);
+
+
             const sign =
-                stock.change > 0
+                change > 0
                     ? "+"
                     : "";
 
+
             changeText =
-                `${sign}${stock.change.toFixed(2)}
-                (${sign}${stock.changePercent.toFixed(2)}%)`;
+                `${sign}${change.toFixed(2)}
+                (${sign}${changePercent.toFixed(2)}%)`;
 
         }
+
+
+        // ==================================
+        // BUY / HOLD / SELL
+        // ==================================
+
+        const suggestion =
+            getMarketSuggestion(stock);
+
+
+        const suggestionClass =
+            getSuggestionClass(
+                suggestion
+            );
 
 
         // ==================================
@@ -213,6 +424,7 @@ function renderMarketData(stocks) {
 
                 </div>
 
+
                 <div class="market-company-name">
 
                     ${escapeMarketHTML(
@@ -224,7 +436,7 @@ function renderMarketData(stocks) {
             </div>
 
 
-            <div class="market-stock-right">
+            <div class="market-stock-middle">
 
                 <div class="market-price">
 
@@ -238,14 +450,43 @@ function renderMarketData(stocks) {
                 >
 
                     <span class="market-arrow">
+
                         ${arrow}
+
                     </span>
 
+
                     <span>
+
                         ${changeText}
+
                     </span>
 
                 </div>
+
+
+                <div class="market-previous-close">
+
+                    Prev Close:
+                    ${previousClose}
+
+                </div>
+
+            </div>
+
+
+            <div class="market-stock-suggestion">
+
+                <span
+                    class="
+                        market-suggestion
+                        ${suggestionClass}
+                    "
+                >
+
+                    ${suggestion}
+
+                </span>
 
             </div>
 
@@ -284,8 +525,10 @@ function escapeMarketHTML(value) {
     const div =
         document.createElement("div");
 
+
     div.textContent =
         value ?? "";
+
 
     return div.innerHTML;
 
@@ -298,37 +541,102 @@ function escapeMarketHTML(value) {
 
 function showMarketStockDetails(stock) {
 
+    // ======================================
+    // Current Price
+    // ======================================
+
     const price =
-        stock.currentPrice !== null
+        stock.currentPrice !== null &&
+        stock.currentPrice !== undefined
+
             ? `₹${Number(
                 stock.currentPrice
             ).toLocaleString(
                 "en-IN",
                 {
-                    minimumFractionDigits: 2
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
                 }
             )}`
+
             : "--";
 
+
+    // ======================================
+    // Previous Close
+    // ======================================
+
+    const previousClose =
+        stock.previousClose !== null &&
+        stock.previousClose !== undefined
+
+            ? `₹${Number(
+                stock.previousClose
+            ).toLocaleString(
+                "en-IN",
+                {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }
+            )}`
+
+            : "--";
+
+
+    // ======================================
+    // Change
+    // ======================================
 
     const change =
-        stock.change !== null
-            ? stock.change.toFixed(2)
+        stock.change !== null &&
+        stock.change !== undefined
+
+            ? Number(
+                stock.change
+            ).toFixed(2)
+
             : "--";
 
+
+    // ======================================
+    // Change %
+    // ======================================
 
     const changePercent =
-        stock.changePercent !== null
-            ? stock.changePercent.toFixed(2)
+        stock.changePercent !== null &&
+        stock.changePercent !== undefined
+
+            ? Number(
+                stock.changePercent
+            ).toFixed(2)
+
             : "--";
 
+
+    // ======================================
+    // Suggestion
+    // ======================================
+
+    const suggestion =
+        getMarketSuggestion(stock);
+
+
+    // ======================================
+    // Message
+    // ======================================
 
     alert(
         `${stock.symbol}
 
 Current Price: ${price}
+
+Previous Close: ${previousClose}
+
 Change: ${change}
-Change %: ${changePercent}%`
+
+Change %: ${changePercent}%
+
+Suggestion: ${suggestion}`
     );
 
 }
