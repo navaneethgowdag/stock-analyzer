@@ -346,7 +346,7 @@ function openAlertModal(
 
     modal.classList.add("active");
 
-    document.body.style.overflow = "hidden";
+    document.body.classList.add('modal-open');
 }
 
 
@@ -363,7 +363,7 @@ function closeAlertModal() {
 
     modal.classList.remove("active");
 
-    document.body.style.overflow = "";
+    document.body.classList.remove('modal-open');
 }
 
 

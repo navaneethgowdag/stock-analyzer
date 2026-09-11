@@ -158,14 +158,16 @@ function showTerms(event) {
     document.getElementById("terms-modal")
         .classList.add("active");
 
-    document.body.style.overflow = "hidden";
+    document.body.classList.add('modal-open');
+
+
 }
 
 function closeTerms() {
     document.getElementById("terms-modal")
         .classList.remove("active");
 
-    document.body.style.overflow = "";
+    document.body.classList.remove('modal-open');
 }
 
 function showPrivacy(event) {
@@ -173,13 +175,12 @@ function showPrivacy(event) {
 
     document.getElementById("privacy-modal")
         .classList.add("active");
-
-    document.body.style.overflow = "hidden";
+    document.body.classList.add('modal-open');
 }
 
 function closePrivacy() {
     document.getElementById("privacy-modal")
         .classList.remove("active");
 
-    document.body.style.overflow = "";
+    document.body.classList.remove('modal-open');
 }
